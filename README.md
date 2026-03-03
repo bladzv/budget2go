@@ -2,12 +2,16 @@
 <p align="center">Personal Finance Manager</p>
 
 <p align="center">
+  <a href="https://bladzv.github.io/budget2go/"><img alt="Live Demo | GitHub Pages" src="https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-2EA44F"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green.svg">
   <img alt="HTML" src="https://img.shields.io/badge/HTML-5-E34F26?logo=html5&logoColor=white">
   <img alt="CSS" src="https://img.shields.io/badge/CSS-3-1572B6?logo=css3&logoColor=white">
   <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?logo=javascript&logoColor=black">
   <img alt="Open Source" src="https://img.shields.io/badge/Open%20Source-Yes-blue">
 </p>
+
+## Live Demo
+- GitHub Pages: https://bladzv.github.io/budget2go/
 
 ## Overview
 Budget2Go is a lightweight, browser-based budgeting app for tracking:
