@@ -103,5 +103,10 @@ budget-n-go/
 - App includes a restrictive `Content-Security-Policy` meta policy for static hosting.
 - Use strong passwords for encrypted exports.
 
+## Privacy Disclaimer
+- Budget2Go is a static client-side web application.
+- Import/export processing happens locally in your browser.
+- This app does not upload your files or financial data to a backend server.
+
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE).

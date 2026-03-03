@@ -45,6 +45,12 @@
        MAIN CONTENT
   ══════════════════════════════════════ -->
   <main class="page-wrapper" role="main">
+    <section class="app-disclaimer" role="note" aria-label="Privacy disclaimer">
+      <h2 class="app-disclaimer-title">Privacy Disclaimer</h2>
+      <p class="app-disclaimer-text">
+        Budget2Go is a static client-side web app. Your files are processed locally in your browser and are not uploaded to any server by this app.
+      </p>
+    </section>
     <div class="main-content">
 
       <!-- ── SALARY / INCOME ── -->
@@ -222,6 +228,56 @@
       </div>
     </div>
   </div>
+
+  <button
+    class="calc-fab"
+    id="btn-calc-fab"
+    aria-label="Open calculator"
+    aria-haspopup="dialog"
+    aria-controls="calculator-panel"
+    aria-expanded="false"
+  >
+    <i data-lucide="calculator" style="width:18px;height:18px;"></i>
+  </button>
+
+  <section class="calculator-panel" id="calculator-panel" role="dialog" aria-label="Calculator" hidden>
+    <div class="calculator-head">
+      <span>Calculator</span>
+      <button class="btn-icon" id="btn-calc-close" aria-label="Close calculator">
+        <i data-lucide="x" style="width:14px;height:14px;"></i>
+      </button>
+    </div>
+    <div class="calculator-display mono" id="calc-display" aria-live="polite" aria-label="Calculator display">
+      <div class="calc-display-expr" id="calc-display-expr"></div>
+      <div class="calc-display-result" id="calc-display-result">0</div>
+    </div>
+    <div class="calculator-grid" id="calculator-grid">
+      <button class="calculator-btn op" data-calc="clear">C</button>
+      <button class="calculator-btn op" data-calc="back">⌫</button>
+      <button class="calculator-btn op" data-calc="(">(</button>
+      <button class="calculator-btn op" data-calc=")">)</button>
+
+      <button class="calculator-btn" data-calc="7">7</button>
+      <button class="calculator-btn" data-calc="8">8</button>
+      <button class="calculator-btn" data-calc="9">9</button>
+      <button class="calculator-btn op" data-calc="/">÷</button>
+
+      <button class="calculator-btn" data-calc="4">4</button>
+      <button class="calculator-btn" data-calc="5">5</button>
+      <button class="calculator-btn" data-calc="6">6</button>
+      <button class="calculator-btn op" data-calc="*">×</button>
+
+      <button class="calculator-btn" data-calc="1">1</button>
+      <button class="calculator-btn" data-calc="2">2</button>
+      <button class="calculator-btn" data-calc="3">3</button>
+      <button class="calculator-btn op" data-calc="-">−</button>
+
+      <button class="calculator-btn" data-calc="0">0</button>
+      <button class="calculator-btn" data-calc=".">.</button>
+      <button class="calculator-btn eq" data-calc="=">=</button>
+      <button class="calculator-btn op" data-calc="+">+</button>
+    </div>
+  </section>
 
   <!-- ══════════════════════════════════════
        IMPORT MODAL

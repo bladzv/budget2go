@@ -10,6 +10,7 @@
     if (!window.App || !App.render || !App.ui) return;
     // 1. Wire up the drop zone for file import
     App.ui.initDropZone();
+    App.ui.initCalculator();
 
     // 2. Initial render (empty state)
     App.render.all();
