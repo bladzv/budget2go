@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <title>Budget2Go — Personal Finance Manager</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════
+       STICKY HEADER
+  ══════════════════════════════════════ -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <i data-lucide="wallet" style="width:15px;height:15px;"></i>
+        </div>
+        <span>Budget2Go</span>
+        <span class="brand-subtitle">Personal Finance Manager</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" id="btn-toggle-import" aria-haspopup="dialog" aria-controls="import-modal">
+          <i data-lucide="upload" style="width:13px;height:13px;"></i>
+          Import
+        </button>
+        <button class="btn btn-primary" id="btn-finalize" aria-label="Finalize and export data">
+          <i data-lucide="download" style="width:13px;height:13px;"></i>
+          Finalize
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════ -->
+  <main class="page-wrapper" role="main">
+    <div class="main-content">
+
+      <!-- ── SALARY / INCOME ── -->
+      <section class="card" id="section-salary" aria-label="Income and salary">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-title-icon icon-cyan">
+              <i data-lucide="trending-up" style="width:15px;height:15px;"></i>
+            </div>
+            Income &amp; Salary
+          </div>
+          <div class="card-header-right">
+            <span class="section-total" id="salary-total">—</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table-salary">
+            <thead>
+              <tr>
+                <th>Source / Employer</th>
+                <th>Amount</th>
+                <th>Frequency</th>
+                <th class="col-hide-sm">Monthly Equiv.</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="salary-body"></tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-add" id="btn-add-salary">
+            <i data-lucide="plus" style="width:13px;height:13px;"></i>
+            Add Income Source
+          </button>
+        </div>
+      </section>
+
+      <!-- ── CURRENT SAVINGS ── -->
+      <section class="card" id="section-savings" aria-label="Current savings">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-title-icon icon-green">
+              <i data-lucide="piggy-bank" style="width:15px;height:15px;"></i>
+            </div>
+            Current Savings
+          </div>
+          <div class="card-header-right">
+            <span class="section-total" id="savings-total">—</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table-savings">
+            <thead>
+              <tr>
+                <th>Institution / Wallet</th>
+                <th>Balance</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="savings-body"></tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-add" id="btn-add-savings">
+            <i data-lucide="plus" style="width:13px;height:13px;"></i>
+            Add Savings Account
+          </button>
+        </div>
+      </section>
+
+      <!-- ── BUDGET & EXPENSES ── -->
+      <section class="card" id="section-budget" aria-label="Budget and expenses">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-title-icon icon-yellow">
+              <i data-lucide="receipt" style="width:15px;height:15px;"></i>
+            </div>
+            Budget &amp; Expenses
+          </div>
+          <div class="card-header-right">
+            <span class="section-total" id="budget-total">—</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table-budget">
+            <thead>
+              <tr>
+                <th class="col-check"></th>
+                <th>Item / Description</th>
+                <th>Allocated</th>
+                <th class="col-hide-sm">Type</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="budget-body"></tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-add" id="btn-add-budget">
+            <i data-lucide="plus" style="width:13px;height:13px;"></i>
+            Add Budget Item
+          </button>
+        </div>
+      </section>
+
+      <!-- ── ACTIVE LOANS ── -->
+      <section class="card" id="section-loans" aria-label="Active loans">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-title-icon icon-red">
+              <i data-lucide="credit-card" style="width:15px;height:15px;"></i>
+            </div>
+            Active Loans
+          </div>
+          <div class="card-header-right">
+            <span class="section-total" id="loans-total">—</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="table-loans">
+            <thead>
+              <tr>
+                <th>Lender / Loan Name</th>
+                <th class="col-hide-sm">Total</th>
+                <th class="col-hide-sm">Per Payment</th>
+                <th class="col-hide-sm">Months Paid</th>
+                <th class="col-hide-sm">Frequency</th>
+                <th>Progress</th>
+                <th class="col-hide-sm">Remaining</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="loans-body"></tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-add" id="btn-add-loan">
+            <i data-lucide="plus" style="width:13px;height:13px;"></i>
+            Add Loan
+          </button>
+        </div>
+      </section>
+
+    </div><!-- /.main-content -->
+  </main>
+
+  <!-- ══════════════════════════════════════
+       STICKY SUMMARY BAR
+  ══════════════════════════════════════ -->
+  <div class="summary-bar" role="status" aria-live="polite" aria-label="Financial summary">
+    <div class="summary-inner">
+      <div class="sum-stat">
+        <span class="sum-label">Monthly Income</span>
+        <span class="sum-value color-cyan" id="sum-income">₱0.00</span>
+      </div>
+      <div class="sum-stat">
+        <span class="sum-label">Total Savings</span>
+        <span class="sum-value" id="sum-savings">₱0.00</span>
+      </div>
+      <div class="sum-stat">
+        <span class="sum-label">Expenses</span>
+        <span class="sum-value" id="sum-expenses">₱0.00</span>
+      </div>
+      <div class="sum-stat">
+        <span class="sum-label">Loan Payments</span>
+        <span class="sum-value" id="sum-loan-pmts">₱0.00</span>
+      </div>
+      <div class="sum-stat">
+        <span class="sum-label">Total Deductions</span>
+        <span class="sum-value color-warning" id="sum-deductions">₱0.00</span>
+      </div>
+      <div class="sum-stat">
+        <span class="sum-label">Remaining</span>
+        <span class="sum-value" id="sum-remaining">₱0.00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       IMPORT MODAL
+  ══════════════════════════════════════ -->
+  <div class="modal-overlay" id="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-heading" hidden>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 class="modal-title" id="import-modal-heading">
+          <i data-lucide="upload" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i>
+          Import Budget Data
+        </h2>
+        <button class="btn-icon" id="btn-import-close" aria-label="Close import dialog">
+          <i data-lucide="x" style="width:16px;height:16px;"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Click or drag a file to import">
+          <input type="file" id="file-input" accept=".json,.csv,.bgo" aria-label="Select budget file to import">
+          <div class="drop-zone-icon">
+            <i data-lucide="file-up" style="width:36px;height:36px;"></i>
+          </div>
+          <p class="drop-zone-title" id="drop-zone-title" data-default="Drop your file here or click to browse">Drop your file here or <strong>click to browse</strong></p>
+          <p class="drop-zone-sub" id="drop-zone-sub" data-default="Supports .json, .csv, and encrypted .bgo exports">Supports .json, .csv, and encrypted .bgo exports</p>
+          <div class="drop-zone-badges">
+            <span class="badge badge-muted"><i data-lucide="file-json" style="width:10px;height:10px;"></i> JSON</span>
+            <span class="badge badge-muted"><i data-lucide="file-text" style="width:10px;height:10px;"></i> CSV</span>
+            <span class="badge badge-muted"><i data-lucide="lock" style="width:10px;height:10px;"></i> BGO</span>
+          </div>
+        </div>
+        <p class="form-hint" id="import-file-meta" style="margin-top:10px;">No file selected.</p>
+        <label class="form-check" for="import-is-encrypted" style="margin-top:10px;">
+          <input type="checkbox" id="import-is-encrypted" disabled>
+          <span>This file is encrypted</span>
+        </label>
+        <div id="import-password-wrap" hidden style="margin-top:10px;">
+          <label class="form-label" for="import-password">Import Password</label>
+          <input
+            type="password"
+            id="import-password"
+            class="form-input mono"
+            placeholder="Enter decryption password"
+            autocomplete="off"
+            spellcheck="false"
+          >
+        </div>
+        <div class="info-box" style="margin-top:12px;">
+          <i data-lucide="info" style="width:13px;height:13px;flex-shrink:0;margin-top:1px;"></i>
+          <div>Choose a previously exported file. Enable the encrypted option only for password-protected exports.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-import-submit" disabled>
+          <i data-lucide="upload" style="width:13px;height:13px;"></i>
+          Import
+        </button>
+        <button class="btn btn-ghost" id="btn-import-cancel">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       EXPORT MODAL
+  ══════════════════════════════════════ -->
+  <div class="modal-overlay" id="export-modal" role="dialog" aria-modal="true" aria-labelledby="modal-heading" hidden>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-heading">
+          <i data-lucide="download" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i>
+          Finalize &amp; Export
+        </h2>
+        <button class="btn-icon" id="btn-modal-close" aria-label="Close export dialog">
+          <i data-lucide="x" style="width:16px;height:16px;"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="export-filename">Filename (optional)</label>
+        <input
+          type="text"
+          id="export-filename"
+          class="form-input mono"
+          placeholder="Leave blank for auto timestamp"
+          maxlength="100"
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <p class="form-hint">Default: <code id="filename-preview"></code> — Special characters are replaced with underscores.</p>
+        <label class="form-check" for="export-encrypt" style="margin-top:14px;">
+          <input type="checkbox" id="export-encrypt">
+          <span>Encrypt export with a password</span>
+        </label>
+        <div id="export-password-wrap" hidden style="margin-top:10px;">
+          <label class="form-label" for="export-password">Export Password</label>
+          <input
+            type="password"
+            id="export-password"
+            class="form-input mono"
+            placeholder="Required when encryption is enabled"
+            autocomplete="off"
+            spellcheck="false"
+          >
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-export-json" style="flex:1;">
+          <i data-lucide="file-json" style="width:13px;height:13px;"></i>
+          <span id="export-json-label">Download JSON</span>
+        </button>
+        <button class="btn btn-ghost" id="btn-export-csv" style="flex:1;">
+          <i data-lucide="file-text" style="width:13px;height:13px;"></i>
+          <span id="export-csv-label">Download CSV</span>
+        </button>
+        <button class="btn btn-ghost" id="btn-modal-cancel">Cancel</button>
+        <p class="form-hint" id="export-json-target" style="width:100%;margin-top:4px;">JSON will save as: <code>budget_*.json</code></p>
+        <p class="form-hint" id="export-csv-target" style="width:100%;margin-top:2px;">CSV will save as: <code>budget_*.csv</code></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       TOAST CONTAINER
+  ══════════════════════════════════════ -->
+  <div id="toast-container" role="log" aria-live="assertive" aria-atomic="false"></div>
+
+  <!-- App scripts first so the app works even if CDN is slow or blocked -->
+  <script src="utils.js"></script>
+  <script src="state.js"></script>
+  <script src="render.js"></script>
+  <script src="io.js"></script>
+  <script src="ui.js"></script>
+  <script src="events.js"></script>
+  <script src="app.js"></script>
+  <!-- Lucide Icons (after app so 404/slow CDN does not block init) -->
+  <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+  <script>
+    if (window.lucide && typeof lucide.createIcons === 'function') { lucide.createIcons(); }
+  </script>
+</body>
+</html>
