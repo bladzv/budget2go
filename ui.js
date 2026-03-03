@@ -293,6 +293,264 @@
     );
   }
 
+  /* ──────────────────────────────────────────────────────
+     CALCULATOR FAB
+  ────────────────────────────────────────────────────── */
+  const calcFabEl = () => document.getElementById('btn-calc-fab');
+  const calcPanelEl = () => document.getElementById('calculator-panel');
+  const calcCloseEl = () => document.getElementById('btn-calc-close');
+  const calcDisplayExprEl = () => document.getElementById('calc-display-expr');
+  const calcDisplayResultEl = () => document.getElementById('calc-display-result');
+  const calcGridEl = () => document.getElementById('calculator-grid');
+  let calcExpr = '';
+  let calcLastExpr = '';
+  let calcJustEvaluated = false;
+
+  function calcPrettyExpr(expr) {
+    return String(expr || '')
+      .replace(/\*/g, '×')
+      .replace(/\//g, '÷')
+      .replace(/-/g, '−');
+  }
+
+  function calcRender(resultValue, exprValue) {
+    const exprEl = calcDisplayExprEl();
+    const resultEl = calcDisplayResultEl();
+    if (!exprEl || !resultEl) return;
+    exprEl.textContent = exprValue != null ? calcPrettyExpr(exprValue) : '';
+    resultEl.textContent = resultValue != null ? String(resultValue) : (calcExpr || '0');
+  }
+
+  function calcToggle(open) {
+    const panel = calcPanelEl();
+    const fab = calcFabEl();
+    if (!panel || !fab) return;
+    const isOpen = typeof open === 'boolean' ? open : panel.hasAttribute('hidden');
+    if (isOpen) {
+      panel.removeAttribute('hidden');
+      fab.setAttribute('aria-expanded', 'true');
+    } else {
+      panel.setAttribute('hidden', '');
+      fab.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function calcTokenize(expr) {
+    const cleaned = String(expr || '').replace(/\s+/g, '');
+    if (!cleaned) return [];
+    const tokens = [];
+    let i = 0;
+    while (i < cleaned.length) {
+      const ch = cleaned[i];
+      if (/[0-9.]/.test(ch)) {
+        let num = ch;
+        i += 1;
+        while (i < cleaned.length && /[0-9.]/.test(cleaned[i])) {
+          num += cleaned[i];
+          i += 1;
+        }
+        if ((num.match(/\./g) || []).length > 1) throw new Error('Invalid number');
+        tokens.push(num);
+        continue;
+      }
+      if (/[+\-*/()]/.test(ch)) {
+        tokens.push(ch);
+        i += 1;
+        continue;
+      }
+      throw new Error('Invalid character');
+    }
+    return tokens;
+  }
+
+  function calcEvaluate(expr) {
+    const tokens = calcTokenize(expr);
+    if (!tokens.length) return 0;
+    const out = [];
+    const ops = [];
+    const prec = { '+': 1, '-': 1, '*': 2, '/': 2 };
+
+    tokens.forEach((t, idx) => {
+      const prev = idx > 0 ? tokens[idx - 1] : null;
+      if (/^[0-9.]+$/.test(t)) {
+        out.push(parseFloat(t));
+        return;
+      }
+      if (t === '(') {
+        ops.push(t);
+        return;
+      }
+      if (t === ')') {
+        while (ops.length && ops[ops.length - 1] !== '(') out.push(ops.pop());
+        if (!ops.length) throw new Error('Mismatched parentheses');
+        ops.pop();
+        return;
+      }
+      // Unary +/- support (e.g. -5 or (+3))
+      if ((t === '+' || t === '-') && (idx === 0 || prev === '(' || /[+\-*/]/.test(prev))) {
+        out.push(0);
+      }
+      while (ops.length && /[+\-*/]/.test(ops[ops.length - 1]) && prec[ops[ops.length - 1]] >= prec[t]) {
+        out.push(ops.pop());
+      }
+      ops.push(t);
+    });
+
+    while (ops.length) {
+      const op = ops.pop();
+      if (op === '(' || op === ')') throw new Error('Mismatched parentheses');
+      out.push(op);
+    }
+
+    const stack = [];
+    out.forEach((item) => {
+      if (typeof item === 'number') {
+        stack.push(item);
+        return;
+      }
+      const b = stack.pop();
+      const a = stack.pop();
+      if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error('Invalid expression');
+      if (item === '+') stack.push(a + b);
+      if (item === '-') stack.push(a - b);
+      if (item === '*') stack.push(a * b);
+      if (item === '/') {
+        if (b === 0) throw new Error('Cannot divide by zero');
+        stack.push(a / b);
+      }
+    });
+
+    if (stack.length !== 1 || !Number.isFinite(stack[0])) throw new Error('Invalid expression');
+    return Math.round(stack[0] * 1000000) / 1000000;
+  }
+
+  function calcHandleInput(key) {
+    if (key === 'clear') {
+      calcExpr = '';
+      calcLastExpr = '';
+      calcJustEvaluated = false;
+      calcRender();
+      return;
+    }
+    if (key === 'back') {
+      if (calcJustEvaluated) {
+        calcExpr = '';
+        calcLastExpr = '';
+        calcJustEvaluated = false;
+        calcRender();
+        return;
+      }
+      calcExpr = calcExpr.slice(0, -1);
+      calcLastExpr = '';
+      calcRender();
+      return;
+    }
+    if (key === '=') {
+      try {
+        const rawExpr = calcExpr || '0';
+        const value = calcEvaluate(calcExpr);
+        calcLastExpr = rawExpr;
+        calcExpr = String(value);
+        calcJustEvaluated = true;
+        calcRender(calcExpr, calcLastExpr);
+      } catch (err) {
+        calcLastExpr = '';
+        calcRender('Error');
+        setTimeout(() => calcRender(), 700);
+      }
+      return;
+    }
+    if (/^[0-9]$/.test(key)) {
+      if (calcJustEvaluated) {
+        calcExpr = key;
+        calcLastExpr = '';
+        calcJustEvaluated = false;
+        calcRender();
+        return;
+      }
+      calcExpr += key;
+      calcLastExpr = '';
+      calcRender();
+      return;
+    }
+    if (key === '.') {
+      if (calcJustEvaluated) {
+        calcExpr = '0.';
+        calcLastExpr = '';
+        calcJustEvaluated = false;
+        calcRender();
+        return;
+      }
+      const chunk = (calcExpr.split(/[+\-*/()]/).pop() || '');
+      if (chunk.indexOf('.') === -1) {
+        calcExpr += chunk ? '.' : '0.';
+      }
+      calcLastExpr = '';
+      calcRender();
+      return;
+    }
+    if (/^[+\-*/()]$/.test(key)) {
+      if (calcJustEvaluated) {
+        calcJustEvaluated = false;
+      }
+      const last = calcExpr.slice(-1);
+      if (/[+\-*/]/.test(last) && /[+\-*/]/.test(key)) {
+        calcExpr = calcExpr.slice(0, -1) + key;
+      } else {
+        calcExpr += key;
+      }
+      calcLastExpr = '';
+      calcRender();
+    }
+  }
+
+  function initCalculator() {
+    const fab = calcFabEl();
+    const panel = calcPanelEl();
+    const closeBtn = calcCloseEl();
+    const grid = calcGridEl();
+    if (!fab || !panel || !grid) return;
+
+    fab.addEventListener('click', () => calcToggle());
+    if (closeBtn) closeBtn.addEventListener('click', () => calcToggle(false));
+
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-calc]');
+      if (!btn) return;
+      calcHandleInput(btn.dataset.calc);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (panel.hasAttribute('hidden')) return;
+      if (e.key === 'Escape') {
+        calcToggle(false);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        calcHandleInput('=');
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        calcHandleInput('back');
+        return;
+      }
+      if (/^[0-9+\-*/().]$/.test(e.key)) {
+        calcHandleInput(e.key);
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (panel.hasAttribute('hidden')) return;
+      if (e.target === fab || fab.contains(e.target)) return;
+      if (panel.contains(e.target)) return;
+      calcToggle(false);
+    });
+
+    calcRender();
+  }
+
   // Close on Escape
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -395,5 +653,6 @@
     getImportOptions,
     submitImport,
     initDropZone,
+    initCalculator,
   };
 })();
