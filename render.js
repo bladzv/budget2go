@@ -54,7 +54,7 @@
       const monthly = (e.amount || 0) * (S.FREQ_TO_MONTHLY[e.frequency] || 1);
       html += `
         <tr data-id="${esc(e.id)}">
-          <td>
+          <td data-label="Source / Employer">
             <input
               class="input-inline"
               type="text"
@@ -65,7 +65,7 @@
               aria-label="Income source name"
             >
           </td>
-          <td>
+          <td data-label="Amount">
             <input
               class="input-inline mono"
               type="number"
@@ -77,16 +77,16 @@
               aria-label="Income amount"
             >
           </td>
-          <td>
+          <td data-label="Frequency">
             <select class="select-inline" data-field="frequency" aria-label="Pay frequency">
               ${freqOptions(e.frequency)}
             </select>
           </td>
-          <td class="col-hide-sm">
+          <td class="col-hide-sm" data-label="Monthly">
             <span class="mono" data-monthly-equiv style="color:var(--cyan);font-size:12px;">${esc(fmt(monthly))}</span>
             <span style="font-size:10px;color:var(--muted);">/mo</span>
           </td>
-          <td>
+          <td data-label="">
             <button
               class="btn-icon"
               data-action="delete-salary"
@@ -125,7 +125,7 @@
     entries.forEach((e) => {
       html += `
         <tr data-id="${esc(e.id)}">
-          <td>
+          <td data-label="Institution">
             <input
               class="input-inline"
               type="text"
@@ -136,7 +136,7 @@
               aria-label="Savings institution name"
             >
           </td>
-          <td>
+          <td data-label="Balance">
             <input
               class="input-inline mono"
               type="number"
@@ -148,7 +148,7 @@
               aria-label="Balance amount"
             >
           </td>
-          <td>
+          <td data-label="">
             <button
               class="btn-icon"
               data-action="delete-savings"
@@ -193,7 +193,7 @@
 
       html += `
         <tr class="${paidCls}" data-id="${esc(b.id)}">
-          <td class="col-check no-strike" style="text-align:center;">
+          <td class="col-check no-strike" data-label="Paid" style="text-align:center;">
             <input
               type="checkbox"
               class="paid-check"
@@ -203,7 +203,7 @@
               aria-label="Mark ${esc(b.name || 'item')} as fulfilled"
             >
           </td>
-          <td>
+          <td data-label="Item">
             <input
               class="input-inline"
               type="text"
@@ -215,7 +215,7 @@
               ${isLoan ? 'style="color:var(--text-secondary);"' : ''}
             >
           </td>
-          <td>
+          <td data-label="Allocated">
             <input
               class="input-inline mono"
               type="number"
@@ -227,8 +227,8 @@
               aria-label="Budget amount"
             >
           </td>
-          <td class="col-hide-sm no-strike">${typeTag}</td>
-          <td class="no-strike">
+          <td class="col-hide-sm no-strike" data-label="Type">${typeTag}</td>
+          <td class="no-strike" data-label="">
             <button
               class="btn-icon"
               data-action="delete-budget"
@@ -287,7 +287,7 @@
 
       html += `
         <tr data-id="${esc(loan.id)}">
-          <td>
+          <td data-label="Lender / Loan">
             <input
               class="input-inline"
               type="text"
@@ -298,7 +298,7 @@
               aria-label="Loan name"
             >
           </td>
-          <td class="col-hide-sm">
+          <td class="col-hide-sm" data-label="Total">
             <input
               class="input-inline mono"
               type="number"
@@ -310,7 +310,7 @@
               aria-label="Total loan amount"
             >
           </td>
-          <td class="col-hide-sm">
+          <td class="col-hide-sm" data-label="Per Payment">
             <input
               class="input-inline mono"
               type="number"
@@ -322,7 +322,7 @@
               aria-label="Payment amount"
             >
           </td>
-          <td class="col-hide-sm">
+          <td class="col-hide-sm" data-label="Months Paid">
             <input
               class="input-inline mono"
               type="number"
@@ -334,12 +334,12 @@
               aria-label="Months already paid"
             >
           </td>
-          <td class="col-hide-sm">
+          <td class="col-hide-sm" data-label="Frequency">
             <select class="select-inline" data-field="frequency" aria-label="Payment frequency">
               ${freqOptions(loan.frequency)}
             </select>
           </td>
-          <td>
+          <td data-label="Progress">
             <div class="progress-wrap">
               <div class="progress-track">
                 <div
@@ -354,12 +354,12 @@
               </div>
             </div>
           </td>
-          <td class="col-hide-sm">
+          <td class="col-hide-sm" data-label="Remaining">
             <span class="mono" data-loan-remaining style="font-size:12px;${remColor}">
               ${esc(fmt(stats.remaining))}
             </span>
           </td>
-          <td class="no-strike">
+          <td class="no-strike" data-label="">
             <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
               ${budgetBtn}
               <button

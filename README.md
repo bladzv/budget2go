@@ -14,36 +14,41 @@
 - GitHub Pages: https://bladzv.github.io/budget2go/
 
 ## Overview
-Budget2Go is a lightweight, browser-based budgeting app for tracking:
-- Income and salary (with frequency-aware monthly equivalent)
+Budget2Go is a lightweight, browser-based personal finance app for tracking:
+- Income and salary, including frequency-aware monthly equivalents
 - Savings balances
-- Budget/expense items
-- Loan balances, payments, and progress
+- Budget and expense items
+- Loan balances, payment progress, and payment history
 
-It supports JSON/CSV import/export and password-protected encrypted exports/imports.
-Default currency formatting is Philippine Peso (`PHP`, `₱`).
+It supports JSON/CSV import and export, password-protected encrypted `.bgo` files, offline use through a PWA service worker, and user-selectable display currency and theme.
 
 ## Features
-- Realtime computation of totals and summary stats while editing fields
-- Loan tracking with payment history and `Months Paid` support
-- Budget/expense fulfillment checkbox for tracking paid/done items (visual state only)
+- Realtime totals and summary stats while editing fields
+- Loan tracking with `Months Paid` support and progress calculations
+- Budget item paid state for visual tracking of completed expenses
+- Currency selector with common presets: PHP, USD, EUR, GBP, JPY, SGD
+- Light/dark theme toggle with saved preference
+- Installable PWA with offline caching
 - Export options:
   - Plain JSON
   - Plain CSV
-  - Encrypted `.bgo` (AES-GCM + PBKDF2)
+  - Encrypted `.bgo` using AES-GCM + PBKDF2
 - Import options:
   - JSON / CSV
   - Encrypted `.bgo` with password
 - Responsive layout:
-  - Desktop: 2x2 card grid
-  - Tablet/Mobile: vertically stacked cards
+  - Desktop: card-based dashboard
+  - Mobile: stacked card rows for each table
 
 ## Tech Stack
 - HTML5
 - CSS3
-- Vanilla JavaScript (IIFE modules, no frontend framework)
-- Web Crypto API for encryption/decryption
-- Puppeteer-based smoke/regression script (`test-app.mjs`)
+- Vanilla JavaScript with IIFE modules and a shared `window.App` namespace
+- Vite for development and production builds
+- `vite-plugin-pwa` for offline support and app manifest generation
+- `lucide` icons from npm
+- Playwright for smoke/regression testing
+- Web Crypto API for encryption and decryption
 
 ## Getting Started
 ### 1. Install dependencies
@@ -51,66 +56,82 @@ Default currency formatting is Philippine Peso (`PHP`, `₱`).
 npm install
 ```
 
-### 2. Run locally
-Serve the project root with any static file server, for example:
+### 2. Start the dev server
 ```bash
-python3 -m http.server 8765
+npm run dev
 ```
-Then open:
-`http://127.0.0.1:8765/index.html`
+Open the URL Vite prints in the terminal.
 
-### 3. Run smoke/regression script
+### 3. Build for production
 ```bash
-node test-app.mjs
+npm run build
+```
+
+### 4. Preview the production build
+```bash
+npm run preview
+```
+
+### 5. Run the browser tests
+```bash
+npm run test
+```
+
+If Playwright browsers are not installed yet:
+```bash
+npm run test:install
 ```
 
 ## Deploy to GitHub Pages
-This app is static (HTML/CSS/JS), so it works directly on GitHub Pages.
+Build the app first, then publish the generated `dist/` output to GitHub Pages or any other static host.
 
-1. Push this repository to GitHub.
-2. Go to `Settings` → `Pages`.
-3. Set `Build and deployment` to:
-   - `Source`: `Deploy from a branch`
-   - `Branch`: `main` (or your default branch)
-   - `Folder`: `/ (root)`
-4. Save and wait for Pages deployment.
+For GitHub Pages:
+1. Run `npm run build`.
+2. Deploy the contents of `dist/`.
+3. If you are using a project site such as `/budget2go/`, keep the base path aligned with your Pages deployment setup.
 
 Notes:
 - `.nojekyll` is included to avoid Jekyll processing issues.
-- All asset/script references are relative, so project-site deployments (for example `/your-repo/`) work correctly.
+- Static asset URLs are handled through Vite, so the app can be deployed as a normal static site.
 
 ## Project Structure
 ```text
-budget-n-go/
+budget2go/
 ├── app.js
 ├── events.js
 ├── index.html
 ├── io.js
+├── lucide-setup.js
+├── main.js
+├── playwright.config.js
+├── public/
+│   └── icon.svg
 ├── render.js
 ├── state.js
 ├── styles.css
-├── test-app.mjs
+├── tests/
+│   └── budget.spec.js
 ├── ui.js
 ├── utils.js
+├── vite.config.js
 ├── package.json
 ├── package-lock.json
-├── LICENSE
-└── node_modules/
+└── LICENSE
 ```
 
 ## Security Notes
 - Encrypted exports use:
-  - `AES-GCM (256-bit)` for authenticated encryption
-  - `PBKDF2-SHA256` with per-file random salt and high iteration count
-  - Per-file random IV
+  - AES-GCM for authenticated encryption
+  - PBKDF2-SHA256 with a per-file random salt and a high iteration count
+  - A per-file random IV
 - Exported CSV values are hardened against formula injection.
-- App includes a restrictive `Content-Security-Policy` meta policy for static hosting.
+- The app uses a restrictive Content Security Policy for static hosting.
 - Use strong passwords for encrypted exports.
 
 ## Privacy Disclaimer
 - Budget2Go is a static client-side web application.
-- Import/export processing happens locally in your browser.
-- This app does not upload your files or financial data to a backend server.
+- Import and export processing happens locally in your browser.
+- The app does not upload your files or financial data to a backend server.
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -348,6 +348,38 @@
       }
     });
   }
+
+  /* ──────────────────────────────────────────────────────
+     THEME TOGGLE
+  ────────────────────────────────────────────────────── */
+  var themeBtn = document.getElementById('btn-theme-toggle');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function () {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('b2g-theme', next); } catch (_) {}
+      var icon = themeBtn.querySelector('i[data-lucide]');
+      if (icon) icon.setAttribute('data-lucide', next === 'light' ? 'moon' : 'sun');
+      if (window.lucide) lucide.createIcons();
+    });
+  }
+
+  /* ──────────────────────────────────────────────────────
+     CURRENCY SELECTOR
+  ────────────────────────────────────────────────────── */
+  var currencySelect = document.getElementById('currency-select');
+  if (currencySelect) {
+    currencySelect.addEventListener('change', function () {
+      var val = this.value;
+      var parts = val.split('|');
+      if (parts.length === 2) {
+        App.utils.setCurrency(parts[0], parts[1]);
+        try { localStorage.setItem('b2g-currency', val); } catch (_) {}
+        R.all();
+      }
+    });
+  }
   }
 
   window.App = window.App || {};

@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   <meta http-equiv="X-Frame-Options" content="DENY">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Budget2Go — Personal Finance Manager</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0F0F1A" id="meta-theme-color">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,6 +31,17 @@
         <span class="brand-subtitle">Personal Finance Manager</span>
       </div>
       <div class="header-actions">
+        <select class="select-currency" id="currency-select" aria-label="Select display currency">
+          <option value="PHP|en-PH">₱ PHP</option>
+          <option value="USD|en-US">$ USD</option>
+          <option value="EUR|de-DE">€ EUR</option>
+          <option value="GBP|en-GB">£ GBP</option>
+          <option value="JPY|ja-JP">¥ JPY</option>
+          <option value="SGD|en-SG">S$ SGD</option>
+        </select>
+        <button class="btn btn-ghost" id="btn-theme-toggle" aria-label="Toggle light/dark theme">
+          <i data-lucide="sun" style="width:13px;height:13px;"></i>
+        </button>
         <button class="btn btn-ghost" id="btn-toggle-import" aria-haspopup="dialog" aria-controls="import-modal">
           <i data-lucide="upload" style="width:13px;height:13px;"></i>
           Import
@@ -401,18 +414,7 @@
   ══════════════════════════════════════ -->
   <div id="toast-container" role="log" aria-live="assertive" aria-atomic="false"></div>
 
-  <!-- App scripts first so the app works even if CDN is slow or blocked -->
-  <script src="utils.js"></script>
-  <script src="state.js"></script>
-  <script src="render.js"></script>
-  <script src="io.js"></script>
-  <script src="ui.js"></script>
-  <script src="events.js"></script>
-  <script src="app.js"></script>
-  <!-- Lucide Icons (after app so 404/slow CDN does not block init) -->
-  <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
-  <script>
-    if (window.lucide && typeof lucide.createIcons === 'function') { lucide.createIcons(); }
-  </script>
+  <!-- App scripts: single Vite entry module -->
+  <script type="module" src="/main.js"></script>
 </body>
 </html>

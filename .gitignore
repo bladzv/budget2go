@@ -1,6 +1,17 @@
 # Dependencies
 node_modules/
 
+# Local agent / workspace metadata
+.github/actions.md
+.github/pr_description.md
+
+# Vite / test runner caches & reports
+.vite/
+playwright-report/
+test-results/
+blob-report/
+*.tsbuildinfo
+
 # Logs
 logs/
 *.log
