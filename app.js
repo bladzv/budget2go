@@ -8,6 +8,23 @@
 
   function init() {
     if (!window.App || !App.render || !App.ui) return;
+
+    // 0. Restore user preferences (theme & currency) before first render
+    var savedTheme = 'dark';
+    try { savedTheme = localStorage.getItem('b2g-theme') || 'dark'; } catch (_) {}
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    var themeIcon = document.querySelector('#btn-theme-toggle i[data-lucide]');
+    if (themeIcon) themeIcon.setAttribute('data-lucide', savedTheme === 'light' ? 'moon' : 'sun');
+
+    var savedCurrency = 'PHP|en-PH';
+    try { savedCurrency = localStorage.getItem('b2g-currency') || 'PHP|en-PH'; } catch (_) {}
+    var cparts = savedCurrency.split('|');
+    if (cparts.length === 2 && App.utils && App.utils.setCurrency) {
+      App.utils.setCurrency(cparts[0], cparts[1]);
+      var sel = document.getElementById('currency-select');
+      if (sel) sel.value = savedCurrency;
+    }
+
     // 1. Wire up the drop zone for file import
     App.ui.initDropZone();
     App.ui.initCalculator();

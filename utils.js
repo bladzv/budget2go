@@ -67,16 +67,35 @@
   /* ──────────────────────────────────────────────────────
      FORMATTING
   ────────────────────────────────────────────────────── */
-  const _phpFormatter = new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+  let _currencyCode   = 'PHP';
+  let _currencyLocale = 'en-PH';
+  let _currencyFormatter = new Intl.NumberFormat('en-PH', {
+    style: 'currency', currency: 'PHP',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
 
-  /** Format a number as PHP currency string. */
+  /** Change the active display currency. Rebuilds the Intl formatter. */
+  function setCurrency(code, locale) {
+    try {
+      const c = String(code  || 'PHP').toUpperCase().slice(0, 10);
+      const l = String(locale || 'en-PH').slice(0, 20);
+      _currencyFormatter = new Intl.NumberFormat(l, {
+        style: 'currency', currency: c,
+        minimumFractionDigits: 2, maximumFractionDigits: 2,
+      });
+      _currencyCode   = c;
+      _currencyLocale = l;
+    } catch (_) {
+      // Invalid currency/locale — silently keep the existing formatter.
+    }
+  }
+
+  /** Return the active ISO currency code (e.g. "PHP", "USD"). */
+  function getCurrencyCode() { return _currencyCode; }
+
+  /** Format a number using the active display currency. */
   function fmt(n) {
-    return _phpFormatter.format(n || 0);
+    return _currencyFormatter.format(n || 0);
   }
 
   /** Format an ISO date string as short human-readable date. */
@@ -127,5 +146,5 @@
   /* ──────────────────────────────────────────────────────
      EXPORT
   ────────────────────────────────────────────────────── */
-  App.utils = { esc, safeStr, safeNum, sanitizeFilename, fmt, fmtDate, uid, defaultFilename };
+  App.utils = { esc, safeStr, safeNum, sanitizeFilename, fmt, setCurrency, getCurrencyCode, fmtDate, uid, defaultFilename };
 })();
