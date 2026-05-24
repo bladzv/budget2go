@@ -28,6 +28,9 @@ It supports JSON/CSV import and export, password-protected encrypted `.bgo` file
 - Budget item paid state for visual tracking of completed expenses
 - Currency selector with common presets: PHP, USD, EUR, GBP, JPY, SGD
 - Light/dark theme toggle with saved preference
+- Privacy dashboard with local storage/cache/export/network visibility
+- One-click local data wipe (state, preferences, and offline caches)
+- Calculator "Use Result" action to apply computed values into focused amount fields
 - Installable PWA with offline caching
 - Export options:
   - Plain JSON
@@ -83,21 +86,34 @@ npm run test:install
 ```
 
 ## Deploy to GitHub Pages
-Build the app first, then publish the generated `dist/` output to GitHub Pages or any other static host.
+This repository now includes an automated GitHub Pages workflow at `.github/workflows/deploy-pages.yml`.
 
-For GitHub Pages:
+How it works:
+1. Trigger: runs on every push to `main` and on manual `workflow_dispatch`.
+2. Quality gate: installs dependencies, installs Playwright Chromium, and runs `npm run test`.
+3. Build: runs `npm run build`.
+4. Publish: uploads `dist/` and deploys it with GitHub Pages actions.
+
+One-time repository setup:
+1. In GitHub, go to **Settings > Pages**.
+2. Set **Source** to **GitHub Actions**.
+3. Ensure pushes to `main` are permitted for your release flow.
+
+Manual fallback deploy (if needed):
 1. Run `npm run build`.
-2. Deploy the contents of `dist/`.
-3. If you are using a project site such as `/budget2go/`, keep the base path aligned with your Pages deployment setup.
+2. Publish the contents of `dist/` to your static host.
 
 Notes:
 - `.nojekyll` is included to avoid Jekyll processing issues.
-- Static asset URLs are handled through Vite, so the app can be deployed as a normal static site.
+- Static asset URLs are configured for project-site deployments such as `/budget2go/`.
 
 ## Project Structure
 ```text
 budget2go/
 ├── app.js
+├── .github/
+│   └── workflows/
+│       └── deploy-pages.yml
 ├── events.js
 ├── index.html
 ├── io.js
@@ -132,6 +148,7 @@ budget2go/
 - Budget2Go is a static client-side web application.
 - Import and export processing happens locally in your browser.
 - The app does not upload your files or financial data to a backend server.
+- Core app flows are designed to run without third-party network requests.
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -306,9 +306,31 @@
   var importClose = document.getElementById('btn-import-close');
   var importCancel = document.getElementById('btn-import-cancel');
   var importSubmit = document.getElementById('btn-import-submit');
+  var privacyOpen = document.getElementById('btn-open-privacy');
+  var privacyClose = document.getElementById('btn-privacy-close');
+  var privacyRefresh = document.getElementById('btn-privacy-refresh');
+  var privacyDone = document.getElementById('btn-privacy-ok');
+  var wipeBtn = document.getElementById('btn-wipe-data');
   if (importClose) importClose.addEventListener('click', UI.closeImportModal);
   if (importCancel) importCancel.addEventListener('click', UI.closeImportModal);
   if (importSubmit) importSubmit.addEventListener('click', UI.submitImport);
+  if (privacyOpen) {
+    privacyOpen.addEventListener('click', function () {
+      UI.openPrivacyModal();
+    });
+  }
+  if (privacyClose) privacyClose.addEventListener('click', UI.closePrivacyModal);
+  if (privacyRefresh) {
+    privacyRefresh.addEventListener('click', function () {
+      UI.refreshPrivacyDashboard();
+    });
+  }
+  if (privacyDone) privacyDone.addEventListener('click', UI.closePrivacyModal);
+  if (wipeBtn) {
+    wipeBtn.addEventListener('click', function () {
+      UI.wipeAllData();
+    });
+  }
 
   var btnJson = document.getElementById('btn-export-json');
   if (btnJson) {

@@ -170,7 +170,18 @@
   const importDropZoneEl   = () => document.getElementById('drop-zone');
   const importDropTitleEl  = () => document.getElementById('drop-zone-title');
   const importDropSubEl    = () => document.getElementById('drop-zone-sub');
+  const privacyModalEl     = () => document.getElementById('privacy-modal');
+  const privacyStorageEl   = () => document.getElementById('privacy-storage');
+  const privacyCachesEl    = () => document.getElementById('privacy-caches');
+  const privacyLastExportEl = () => document.getElementById('privacy-last-export');
+  const privacyLastEncryptedEl = () => document.getElementById('privacy-last-encrypted');
+  const privacyOutboundEl  = () => document.getElementById('privacy-outbound-count');
   let pendingImportFile = null;
+  let calcLastTargetInput = null;
+  let privacyMonitorInstalled = false;
+  const privacyStats = {
+    outboundRequests: 0,
+  };
 
   function selectedImportExt() {
     if (!pendingImportFile || !pendingImportFile.name) return '';
@@ -293,12 +304,176 @@
     );
   }
 
+  function fmtBytes(bytes) {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let value = n;
+    let idx = 0;
+    while (value >= 1024 && idx < units.length - 1) {
+      value /= 1024;
+      idx += 1;
+    }
+    return (idx === 0 ? String(Math.round(value)) : value.toFixed(1)) + ' ' + units[idx];
+  }
+
+  function readLocalStorageUsage() {
+    let total = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i) || '';
+        const value = localStorage.getItem(key) || '';
+        total += key.length + value.length;
+      }
+    } catch (_) {}
+    return total * 2;
+  }
+
+  function readLastExportMeta() {
+    try {
+      const raw = localStorage.getItem('b2g-last-export');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function isOutboundUrl(rawUrl) {
+    try {
+      const u = new URL(String(rawUrl || ''), window.location.href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+      return u.origin !== window.location.origin;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function installPrivacyMonitor() {
+    if (privacyMonitorInstalled) return;
+    privacyMonitorInstalled = true;
+
+    if (typeof window.fetch === 'function') {
+      const baseFetch = window.fetch.bind(window);
+      window.fetch = function (...args) {
+        const candidate = args[0] && args[0].url ? args[0].url : args[0];
+        if (isOutboundUrl(candidate)) privacyStats.outboundRequests += 1;
+        return baseFetch(...args);
+      };
+    }
+
+    if (window.XMLHttpRequest && XMLHttpRequest.prototype && XMLHttpRequest.prototype.open) {
+      const baseOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
+        if (isOutboundUrl(url)) privacyStats.outboundRequests += 1;
+        return baseOpen.call(this, method, url, async, user, password);
+      };
+    }
+
+    if (typeof window.WebSocket === 'function') {
+      const BaseWebSocket = window.WebSocket;
+      function WrappedWebSocket(url, protocols) {
+        if (isOutboundUrl(url)) privacyStats.outboundRequests += 1;
+        return protocols ? new BaseWebSocket(url, protocols) : new BaseWebSocket(url);
+      }
+      WrappedWebSocket.prototype = BaseWebSocket.prototype;
+      window.WebSocket = WrappedWebSocket;
+    }
+  }
+
+  async function refreshPrivacyDashboard() {
+    if (privacyStorageEl()) {
+      privacyStorageEl().textContent = fmtBytes(readLocalStorageUsage());
+    }
+    if (privacyCachesEl()) {
+      let count = 0;
+      try {
+        if (window.caches && typeof caches.keys === 'function') {
+          const keys = await caches.keys();
+          count = keys.length;
+        }
+      } catch (_) {}
+      privacyCachesEl().textContent = String(count);
+    }
+    const meta = readLastExportMeta();
+    if (privacyLastExportEl()) {
+      if (!meta || !meta.at) {
+        privacyLastExportEl().textContent = 'Never';
+      } else {
+        const dt = new Date(meta.at);
+        privacyLastExportEl().textContent = Number.isNaN(dt.getTime()) ? 'Unknown' : dt.toLocaleString();
+      }
+    }
+    if (privacyLastEncryptedEl()) {
+      privacyLastEncryptedEl().textContent = meta && meta.encrypted ? 'Yes' : 'No';
+    }
+    if (privacyOutboundEl()) {
+      privacyOutboundEl().textContent = String(privacyStats.outboundRequests);
+    }
+  }
+
+  function openPrivacyModal() {
+    const modal = privacyModalEl();
+    if (!modal) return;
+    modal.removeAttribute('hidden');
+    refreshPrivacyDashboard();
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
+  }
+
+  function closePrivacyModal() {
+    const modal = privacyModalEl();
+    if (modal) modal.setAttribute('hidden', '');
+  }
+
+  async function wipeAllData() {
+    const confirmed = window.confirm('This will wipe all local Budget2Go data, preferences, and offline caches. Continue?');
+    if (!confirmed) return false;
+
+    App.state.set({ salary: [], savings: [], budget: [], loans: [] });
+
+    try {
+      localStorage.removeItem('b2g-theme');
+      localStorage.removeItem('b2g-currency');
+      localStorage.removeItem('b2g-last-export');
+    } catch (_) {}
+
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch (_) {}
+
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+    } catch (_) {}
+
+    document.documentElement.setAttribute('data-theme', 'dark');
+    if (App.utils && App.utils.setCurrency) {
+      App.utils.setCurrency('PHP', 'en-PH');
+      const sel = document.getElementById('currency-select');
+      if (sel) sel.value = 'PHP|en-PH';
+    }
+    privacyStats.outboundRequests = 0;
+    App.render.all();
+    toast('All local data wiped from this browser.', 'success');
+    return true;
+  }
+
   /* ──────────────────────────────────────────────────────
      CALCULATOR FAB
   ────────────────────────────────────────────────────── */
   const calcFabEl = () => document.getElementById('btn-calc-fab');
   const calcPanelEl = () => document.getElementById('calculator-panel');
   const calcCloseEl = () => document.getElementById('btn-calc-close');
+  const calcApplyEl = () => document.getElementById('btn-calc-apply');
   const calcDisplayExprEl = () => document.getElementById('calc-display-expr');
   const calcDisplayResultEl = () => document.getElementById('calc-display-result');
   const calcGridEl = () => document.getElementById('calculator-grid');
@@ -504,15 +679,54 @@
     }
   }
 
+  function calcCurrentNumber() {
+    if (!calcExpr) return null;
+    const n = Number(calcExpr);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function calcApplyResultToTarget() {
+    if (!calcLastTargetInput || !document.contains(calcLastTargetInput)) {
+      toast('Select an amount field first, then use calculator result.', 'info');
+      return;
+    }
+    let value = calcCurrentNumber();
+    if (value == null && calcExpr) {
+      try {
+        value = calcEvaluate(calcExpr);
+      } catch (_) {
+        value = null;
+      }
+    }
+    if (value == null) {
+      toast('Calculator result is not a valid number.', 'error');
+      return;
+    }
+    calcLastTargetInput.focus();
+    calcLastTargetInput.value = String(value);
+    calcLastTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+    calcLastTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
+    toast('Calculator result applied to selected field.', 'success');
+  }
+
   function initCalculator() {
     const fab = calcFabEl();
     const panel = calcPanelEl();
     const closeBtn = calcCloseEl();
+    const applyBtn = calcApplyEl();
     const grid = calcGridEl();
     if (!fab || !panel || !grid) return;
 
     fab.addEventListener('click', () => calcToggle());
     if (closeBtn) closeBtn.addEventListener('click', () => calcToggle(false));
+    if (applyBtn) applyBtn.addEventListener('click', calcApplyResultToTarget);
+
+    document.addEventListener('focusin', (e) => {
+      const t = e.target;
+      if (!t || !(t instanceof HTMLInputElement)) return;
+      if (t.type !== 'number') return;
+      calcLastTargetInput = t;
+    });
 
     grid.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-calc]');
@@ -556,6 +770,7 @@
     if (e.key !== 'Escape') return;
     if (exportModalEl() && !exportModalEl().hasAttribute('hidden')) closeModal();
     if (importModalEl() && !importModalEl().hasAttribute('hidden')) closeImportModal();
+    if (privacyModalEl() && !privacyModalEl().hasAttribute('hidden')) closePrivacyModal();
   });
 
   // Close on backdrop click
@@ -566,6 +781,10 @@
     }
     if (importModalEl() && !importModalEl().hasAttribute('hidden') && e.target === importModalEl()) {
       closeImportModal();
+      return;
+    }
+    if (privacyModalEl() && !privacyModalEl().hasAttribute('hidden') && e.target === privacyModalEl()) {
+      closePrivacyModal();
     }
   });
 
@@ -583,6 +802,7 @@
   function initDropZone() {
     const zone      = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
+    installPrivacyMonitor();
     if (!zone || !fileInput) return;
 
     // Drag & drop events
@@ -650,6 +870,10 @@
     getExportOptions,
     openImportModal,
     closeImportModal,
+    openPrivacyModal,
+    closePrivacyModal,
+    refreshPrivacyDashboard,
+    wipeAllData,
     getImportOptions,
     submitImport,
     initDropZone,
