@@ -43,7 +43,7 @@ html {
 }
 
 body {
-  font-family: 'Sora', system-ui, -apple-system, sans-serif;
+  font-family: Avenir Next, Avenir, Segoe UI, system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.55;
   color: var(--text);
@@ -67,7 +67,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: var(--primary-dim); }
 
 code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.85em;
   color: var(--cyan);
   background: rgba(0,212,255,0.07);
@@ -78,7 +78,7 @@ code {
 /* ============================================================
    TYPOGRAPHY HELPERS
 ============================================================ */
-.mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
 .color-cyan    { color: var(--cyan) !important; }
 .color-success { color: var(--success) !important; }
@@ -564,6 +564,16 @@ tr.row-paid {
   background: var(--border);
 }
 
+.btn-danger-outline {
+  border-color: rgba(239,68,68,0.45);
+  color: #fca5a5;
+}
+.btn-danger-outline:hover:not(:disabled) {
+  color: #fecaca;
+  border-color: rgba(239,68,68,0.8);
+  background: rgba(239,68,68,0.12);
+}
+
 /* Dashed add */
 .btn-add {
   width: 100%;
@@ -995,6 +1005,40 @@ tr.row-paid {
   flex-wrap: wrap;
 }
 
+.privacy-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 520px) {
+  .privacy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.privacy-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(15,15,26,0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.privacy-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.privacy-value {
+  font-size: 13px;
+  color: var(--text);
+}
+
 /* ============================================================
    FORM ELEMENTS (modal)
 ============================================================ */
@@ -1103,6 +1147,18 @@ tr.row-paid {
   font-weight: 700;
   color: var(--text-secondary);
   margin-bottom: 8px;
+}
+
+.calculator-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-calc-apply {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 11px;
 }
 
 .calculator-display {

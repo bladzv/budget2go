@@ -154,6 +154,16 @@
     };
   }
 
+  function recordExportMeta(filename, encrypted) {
+    try {
+      localStorage.setItem('b2g-last-export', JSON.stringify({
+        filename: String(filename || ''),
+        encrypted: !!encrypted,
+        at: new Date().toISOString(),
+      }));
+    } catch (_) {}
+  }
+
   function exportJSON(rawFilename, options) {
     const opts = normalizeExportOptions(options);
     const data = JSON.stringify(S.getExport(), null, 2);
@@ -161,11 +171,13 @@
       return encryptPayload(data, opts.password, 'json').then((encrypted) => {
         const filename = resolveFilename(rawFilename, '.bgo');
         triggerDownload(encrypted, filename, 'application/json;charset=utf-8;');
+        recordExportMeta(filename, true);
         App.ui.toast('Encrypted export saved as ' + filename, 'success');
       });
     }
     const filename = resolveFilename(rawFilename, '.json');
     triggerDownload(data, filename, 'application/json;charset=utf-8;');
+    recordExportMeta(filename, false);
     App.ui.toast('Exported as ' + filename, 'success');
     return Promise.resolve();
   }
@@ -239,11 +251,13 @@
       return encryptPayload(csv, opts.password, 'csv').then((encrypted) => {
         const filename = resolveFilename(rawFilename, '.bgo');
         triggerDownload(encrypted, filename, 'application/json;charset=utf-8;');
+        recordExportMeta(filename, true);
         App.ui.toast('Encrypted export saved as ' + filename, 'success');
       });
     }
     const filename = resolveFilename(rawFilename, '.csv');
     triggerDownload(csv, filename, 'text/csv;charset=utf-8;');
+    recordExportMeta(filename, false);
     App.ui.toast('Exported as ' + filename, 'success');
     return Promise.resolve();
   }
