@@ -17,7 +17,7 @@
     function editable() { return !S.isReadOnly(); }
     function deleteWithUndo(kind, id, action, message) {
       if (!editable()) return;
-      const undoMonth = S.activeMonth();
+      const undoMonth = S.viewedMonth();
       const current = S.get();
       const index = current[kind].findIndex((item) => item.id === id);
       if (index < 0) return;
@@ -28,8 +28,11 @@
       const savedLinked = linkedBudget ? structuredClone(linkedBudget) : null;
       action();
       R.all();
+      const owner = kind === 'salary' || kind === 'savings' ? 'accounts' : kind === 'loans' ? 'loans' : 'budget';
+      const next = document.querySelector('#view-' + owner + ' [data-edit]') || document.querySelector('#view-' + owner + ' [data-add]');
+      if (next) next.focus();
       UI.showUndo(message, () => {
-        if (S.activeMonth() !== undoMonth || S.isReadOnly()) return;
+        if (S.viewedMonth() !== undoMonth || S.isReadOnly()) return;
         const target = S.get();
         if (target[kind].some((entry) => entry.id === id)) return;
         target[kind].splice(index, 0, item);
@@ -41,193 +44,26 @@
           if (loan) loan.budgetEntryId = item.id;
         }
         R.all();
+        const restored = document.querySelector('#view-' + owner + ' [data-edit][data-id="' + CSS.escape(id) + '"]');
+        if (restored) restored.focus();
       });
     }
 
-    /* ──────────────────────────────────────────────────────
-       HELPER: delegate to a table body
-       Binds input, change, blur, click, and keydown on a tbody.
-    ────────────────────────────────────────────────────── */
-    function delegate(tbodyId, handlers) {
-      var el = document.getElementById(tbodyId);
-      if (!el) return;
-
-      el.addEventListener('input', function (e) {
-        if (handlers.input) handlers.input(e);
-      });
-      el.addEventListener('change', function (e) {
-        if (handlers.change) handlers.change(e);
-      });
-      if (handlers.blur) {
-        el.addEventListener('blur', function (e) {
-          handlers.blur(e);
-        }, true);
-      }
-      el.addEventListener('click', function (e) {
-        if (handlers.click) handlers.click(e);
-      });
-      el.addEventListener('keydown', function (e) {
-        if (handlers.keydown) handlers.keydown(e);
-      });
-    }
-
-    function rowId(target) {
-      var row = target.closest('tr[data-id]');
-      return row ? row.dataset.id : null;
-    }
-
-    function cssEscape(value) {
-      if (window.CSS && typeof window.CSS.escape === 'function') {
-        return window.CSS.escape(String(value));
-      }
-      return String(value).replace(/["\\]/g, '\\$&');
-    }
-
-    function rerenderTablePreserveFocus(tbodyId, renderFn) {
-      var tbody = document.getElementById(tbodyId);
-      var active = document.activeElement;
-      var snapshot = null;
-
-      if (tbody && active && tbody.contains(active)) {
-        var rid = rowId(active);
-        var field = active.dataset ? active.dataset.field : null;
-        if (rid && field) {
-          snapshot = {
-            rid: rid,
-            field: field,
-            start: typeof active.selectionStart === 'number' ? active.selectionStart : null,
-            end: typeof active.selectionEnd === 'number' ? active.selectionEnd : null,
-          };
-        }
-      }
-
-      renderFn();
-
-      if (!snapshot) return;
-      var nextTbody = document.getElementById(tbodyId);
-      if (!nextTbody) return;
-      var sel = 'tr[data-id="' + cssEscape(snapshot.rid) + '"] [data-field="' + cssEscape(snapshot.field) + '"]';
-      var next = nextTbody.querySelector(sel);
-      if (!next) return;
-      next.focus();
-      if (snapshot.start != null && snapshot.end != null && typeof next.setSelectionRange === 'function') {
-        try {
-          next.setSelectionRange(snapshot.start, snapshot.end);
-        } catch (err) {
-          // Ignore selection restore errors for non-text-like inputs.
-        }
-      }
-    }
-
-    function updateSalaryMonthlyCell(inputEl) {
-      var rid = rowId(inputEl);
-      if (!rid) return;
-      var row = inputEl.closest('tr[data-id]');
-      if (!row) return;
-      var out = row.querySelector('[data-monthly-equiv]');
-      if (!out) return;
-      var salary = S.get().salary.find(function (s) { return s.id === rid; });
-      if (!salary) return;
-      var factor = S.FREQ_TO_MONTHLY[salary.frequency] || 1;
-      out.textContent = App.utils.fmt((salary.amount || 0) * factor);
-    }
-
-    function updateLoanComputedCells(inputEl) {
-      var rid = rowId(inputEl);
-      if (!rid) return;
-      var row = inputEl.closest('tr[data-id]');
-      if (!row) return;
-      var loan = S.get().loans.find(function (l) { return l.id === rid; });
-      if (!loan) return;
-      var stats = S.loanStats(loan);
-
-      var fill = row.querySelector('[data-loan-progress-fill]');
-      var pctEl = row.querySelector('[data-loan-progress-pct]');
-      var leftEl = row.querySelector('[data-loan-payments-left]');
-      var remEl = row.querySelector('[data-loan-remaining]');
-
-      if (fill) {
-        var pct = Math.min(100, stats.progress).toFixed(1);
-        fill.style.width = pct + '%';
-        fill.classList.toggle('done', !!stats.isDone);
-      }
-      if (pctEl) pctEl.textContent = stats.progress.toFixed(1) + '%';
-      if (leftEl) leftEl.textContent = stats.paymentsLeft + ' left';
-      if (remEl) {
-        remEl.textContent = App.utils.fmt(stats.remaining);
-        remEl.style.color = stats.isDone ? 'var(--success)' : 'var(--text-secondary)';
-      }
-    }
-
-    /* ──────────────────────────────────────────────────────
-       SALARY TABLE
-    ────────────────────────────────────────────────────── */
-    delegate('salary-body', {
-    input: function (e) {
-      if (!editable()) return;
-      var field = e.target.dataset.field;
-      if (field === 'source' || field === 'amount') {
-        S.updateSalaryField(rowId(e.target), field, e.target.value);
-        var tot = document.getElementById('salary-total');
-        if (tot) tot.textContent = App.utils.fmt(S.salaryTotal()) + '/mo';
-        if (field === 'amount') updateSalaryMonthlyCell(e.target);
-        R.summary();
-      }
-    },
-    change: function (e) {
-      if (!editable()) return;
-      var field = e.target.dataset.field;
-      if (field === 'frequency') {
-        S.updateSalaryField(rowId(e.target), field, e.target.value);
-        rerenderTablePreserveFocus('salary-body', R.salary);
-        R.summary();
-      }
-    },
-    click: function (e) {
-      var btn = e.target.closest('[data-action="delete-salary"]');
-      if (btn) {
-        deleteWithUndo('salary', btn.dataset.id, () => S.deleteSalary(btn.dataset.id), 'Income entry removed.');
-      }
-    },
-  });
-
-  /* ──────────────────────────────────────────────────────
-     SAVINGS TABLE
-  ────────────────────────────────────────────────────── */
-  delegate('savings-body', {
-    input: function (e) {
-      if (!editable()) return;
-      var field = e.target.dataset.field;
-      if (field === 'location' || field === 'amount') {
-        S.updateSavingsField(rowId(e.target), field, e.target.value);
-        var tot = document.getElementById('savings-total');
-        if (tot) tot.textContent = App.utils.fmt(S.savingsTotal());
-        R.summary();
-      }
-    },
-    click: function (e) {
-      var btn = e.target.closest('[data-action="delete-savings"]');
-      if (btn) {
-        deleteWithUndo('savings', btn.dataset.id, () => S.deleteSavings(btn.dataset.id), 'Savings entry removed.');
-      }
-    },
-  });
-
-  /* ──────────────────────────────────────────────────────
-     BUDGET TABLE
-  ────────────────────────────────────────────────────── */
   function handleSetPaid(id, checked) {
     if (!editable()) return;
-    const undoMonth = S.activeMonth();
+    const undoMonth = S.viewedMonth();
     const before = S.get().budget.find((item) => item.id === id);
     const prior = before ? structuredClone(before) : null;
     const loan = before && before.loanId ? S.get().loans.find((item) => item.id === before.loanId) : null;
     const priorPayment = loan && prior.lastPaymentId ? loan.payments.find((entry) => entry.id === prior.lastPaymentId) : null;
     const result = S.setBudgetPaid(id, checked);
     if (!result) return;
+    const containerId = document.activeElement.closest('#overview-unpaid') ? 'overview-unpaid' : 'budget-body';
     R.all();
+    const replacement = document.getElementById(containerId).querySelector('[data-id="' + CSS.escape(id) + '"][data-action="toggle-paid"]');
+    (replacement || (containerId === 'overview-unpaid' ? document.querySelector('#view-overview [data-view="budget"]') : document.querySelector('[data-filter][aria-pressed="true"]'))).focus();
     UI.showUndo(result.paymentId ? 'Loan payment recorded.' : 'Paid state updated.', () => {
-      if (S.activeMonth() !== undoMonth || S.isReadOnly()) return;
+      if (S.viewedMonth() !== undoMonth || S.isReadOnly()) return;
       const current = S.get().budget.find((item) => item.id === id);
       if (!current || current.paid !== checked) return;
       if (checked) S.setBudgetPaid(id, false);
@@ -243,138 +79,75 @@
     });
   }
 
-  delegate('budget-body', {
-    input: function (e) {
-      if (!editable()) return;
-      var field = e.target.dataset.field;
-      if (field === 'name' || field === 'amount') {
-        S.updateBudgetField(rowId(e.target), field, e.target.value);
-        var tot = document.getElementById('budget-total');
-        if (tot) tot.textContent = App.utils.fmt(S.budgetTotal());
-        if (field === 'amount') R.loans();
-        R.summary();
-      }
-    },
-    change: function (e) {
-      if (!editable()) return;
-      if (e.target.dataset.field === 'recurring') {
-        S.updateBudgetField(rowId(e.target), 'recurring', e.target.checked);
-        R.summary();
+  // Amounts are staged in the field until blur/Enter. Escape cancels the edit.
+  const configs = {
+    'salary-body': ['salary', S.updateSalaryField, S.deleteSalary],
+    'savings-body': ['savings', S.updateSavingsField, S.deleteSavings],
+    'budget-body': ['budget', S.updateBudgetField, S.deleteBudget],
+    'loans-body': ['loans', S.updateLoanField, S.deleteLoan],
+  };
+  Object.entries(configs).forEach(([bodyId, [kind, update, remove]]) => {
+    const body = document.getElementById(bodyId);
+    function commit(input) {
+      if (!editable() || !input.matches('input[data-field]')) return;
+      const row = input.closest('[data-id]');
+      const record = S.get()[kind].find(entry => entry.id === row.dataset.id);
+      if (!record) return;
+      const field = input.dataset.field;
+      const number = App.utils.parseAmount(input.value);
+      if (number == null || !input.checkValidity()) {
+        input.value = App.utils.formatAmount(record[field]);
+        UI.toast('Enter a valid, non-negative amount.', 'error');
         return;
       }
-      var checkEl = e.target.closest('[data-action="toggle-paid"]');
-      if (checkEl) {
-        handleSetPaid(checkEl.dataset.id, !!checkEl.checked);
-      }
-    },
-    click: function (e) {
-      var delBtn = e.target.closest('[data-action="delete-budget"]');
-      if (delBtn) {
-        deleteWithUndo('budget', delBtn.dataset.id, () => S.deleteBudget(delBtn.dataset.id), 'Budget item removed.');
-      }
-    },
-  });
-
-  /* ──────────────────────────────────────────────────────
-     LOANS TABLE
-     Re-render on every input/change for realtime computations while
-     preserving focus/cursor.
-  ────────────────────────────────────────────────────── */
-  delegate('loans-body', {
-    input: function (e) {
-      if (!editable()) return;
-      var field = e.target.dataset.field;
-      if (field === 'name' || field === 'total' || field === 'paymentAmount' || field === 'monthsPaid') {
-        S.updateLoanField(rowId(e.target), field, e.target.value);
-        var tot = document.getElementById('loans-total');
-        if (tot) tot.textContent = 'Owed: ' + App.utils.fmt(S.loansRemainingTotal());
-        if (field === 'total' || field === 'paymentAmount' || field === 'monthsPaid') {
-          updateLoanComputedCells(e.target);
-        }
-        R.summary();
-      }
-    },
-    change: function (e) {
-      if (!editable()) return;
-      var field = e.target.dataset.field;
-      if (field === 'frequency') {
-        S.updateLoanField(rowId(e.target), field, e.target.value);
-        rerenderTablePreserveFocus('loans-body', R.loans);
-        R.summary();
-      }
-    },
-    click: function (e) {
-      var details = e.target.closest('[data-action="toggle-loan-details"]');
-      if (details) {
-        var row = details.closest('tr[data-id]');
-        var open = row.classList.toggle('details-open');
-        row.querySelectorAll('.loan-detail').forEach((cell) => { cell.inert = !open; });
-        details.setAttribute('aria-expanded', String(open));
-        details.setAttribute('aria-label', open ? 'Hide loan details' : 'Show loan details');
-        return;
-      }
-      var toBudget = e.target.closest('[data-action="loan-to-budget"]');
-      if (toBudget) {
-        if (!editable()) return;
-        var added = S.addLoanToBudget(toBudget.dataset.id);
-        if (added) {
-          R.all();
-          UI.toast('Loan payment added to Budget — you can edit the amount there.', 'info');
-        }
-        return;
-      }
-      var delBtn = e.target.closest('[data-action="delete-loan"]');
-      if (delBtn) {
-        deleteWithUndo('loans', delBtn.dataset.id, () => S.deleteLoan(delBtn.dataset.id), 'Loan removed.');
-      }
-    },
-  });
-
-  /* ──────────────────────────────────────────────────────
-     ADD BUTTONS
-  ────────────────────────────────────────────────────── */
-  function bindAdd(btnId, tbodyId, mutation, renderFn) {
-    var btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-      if (!editable()) return;
-      mutation();
-      renderFn();
+      input.value = App.utils.formatAmount(number);
+      if (number === record[field]) return;
+      update(record.id, field, number);
+      input.dataset.original = input.value;
       R.summary();
-      var tbody = document.getElementById(tbodyId);
-      if (tbody) {
-        var lastRow = tbody.querySelector('tr[data-id]:last-child');
-        if (lastRow) {
-          var firstInput = lastRow.querySelector('input:not([type="checkbox"])');
-          if (firstInput) firstInput.focus();
-        }
+      if (kind === 'salary') {
+        document.getElementById('salary-total').textContent = App.utils.fmt(S.salaryTotal()) + ' per month';
+        row.querySelector('[data-monthly-equiv]').textContent = App.utils.fmt(record.amount * (S.FREQ_TO_MONTHLY[record.frequency] || 1));
+      }
+      if (kind === 'savings') document.getElementById('savings-total').textContent = App.utils.fmt(S.savingsTotal());
+      if (kind === 'budget') {
+        document.getElementById('budget-total').textContent = App.utils.fmt(S.budgetTotal());
+        R.loans();
+      }
+    }
+    body.addEventListener('focusin', e => {
+      if (e.target.matches('input[data-field]')) e.target.dataset.original = e.target.value;
+    });
+    body.addEventListener('blur', e => commit(e.target), true);
+    body.addEventListener('change', e => {
+      if (e.target.matches('[data-action="toggle-paid"]')) handleSetPaid(e.target.dataset.id, e.target.checked);
+      else commit(e.target);
+    });
+    body.addEventListener('keydown', e => {
+      if (!e.target.matches('input[data-field]')) return;
+      if (e.key === 'Enter') { e.preventDefault(); commit(e.target); e.target.blur(); }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.target.value = e.target.dataset.original;
+        e.target.blur();
       }
     });
-  }
-
-  bindAdd('btn-add-salary',  'salary-body',  S.addSalary,         R.salary);
-  bindAdd('btn-add-savings', 'savings-body', S.addSavings,        R.savings);
-  bindAdd('btn-add-budget',  'budget-body',  function () { S.addBudget(); }, R.budget);
-  bindAdd('btn-add-loan',    'loans-body',   S.addLoan,           R.loans);
-
-  const monthTabs = document.getElementById('month-tabs');
-  if (monthTabs) monthTabs.addEventListener('click', (e) => {
-    const button = e.target.closest('[data-month]');
-    if (button && S.viewMonth(button.dataset.month)) R.all();
+    body.addEventListener('click', e => {
+      const button = e.target.closest('[data-action]');
+      if (!button) return;
+      if (button.dataset.action === 'delete-' + (kind === 'loans' ? 'loan' : kind)) {
+        deleteWithUndo(kind, button.dataset.id, () => remove(button.dataset.id), 'Entry removed.');
+      }
+      if (button.dataset.action === 'loan-to-budget' && editable() && S.addLoanToBudget(button.dataset.id)) {
+        R.all();
+        UI.toast('Loan payment added to your budget.', 'success');
+        document.querySelector('#loans-body [data-id="' + CSS.escape(button.dataset.id) + '"] [data-edit]').focus();
+      }
+    });
   });
-  const startMonth = document.getElementById('btn-start-month');
-  if (startMonth) startMonth.addEventListener('click', () => {
-    if (S.rollover()) {
-      R.all();
-      UI.toast('New month started. Recurring items copied and paid states reset.', 'success');
-    }
+  document.getElementById('overview-unpaid').addEventListener('change', e => {
+    if (e.target.matches('[data-action="toggle-paid"]')) handleSetPaid(e.target.dataset.id, e.target.checked);
   });
-  const summaryToggle = document.getElementById('btn-summary-toggle');
-  if (summaryToggle) summaryToggle.addEventListener('click', () => {
-    const expanded = document.querySelector('.summary-bar').classList.toggle('expanded');
-    summaryToggle.setAttribute('aria-expanded', String(expanded));
-  });
-
   var importBtn = document.getElementById('btn-toggle-import');
   if (importBtn) importBtn.addEventListener('click', UI.openImportModal);
 
@@ -415,76 +188,16 @@
     });
   }
 
-  var btnJson = document.getElementById('btn-export-json');
-  if (btnJson) {
-    btnJson.addEventListener('click', async function () {
-      btnJson.disabled = true;
-      const label = document.getElementById('export-json-label');
-      const old = label.textContent;
-      label.textContent = 'Preparing…';
-      try {
-        await App.io.exportJSON(UI.getModalFilename(), UI.getExportOptions());
-        label.textContent = 'Download started';
-        UI.closeModal();
-      } catch (err) {
-        UI.toast((err && err.message) ? err.message : 'Export failed.', 'error');
-      } finally {
-        btnJson.disabled = false;
-        label.textContent = old;
-      }
-    });
-  }
+  document.getElementById('btn-export-json').addEventListener('click', () => UI.exportFromDialog('json'));
+  document.getElementById('btn-export-csv').addEventListener('click', () => UI.exportFromDialog('csv'));
+  document.getElementById('export-filename').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); UI.exportFromDialog('json'); }
+  });
+  document.getElementById('btn-export-wipe-confirm').addEventListener('click', UI.confirmExportWipe);
+  document.getElementById('btn-export-keep').addEventListener('click', UI.closeModal);
 
-  var btnCsv = document.getElementById('btn-export-csv');
-  if (btnCsv) {
-    btnCsv.addEventListener('click', async function () {
-      btnCsv.disabled = true;
-      const label = document.getElementById('export-csv-label');
-      const old = label.textContent;
-      label.textContent = 'Preparing…';
-      try {
-        await App.io.exportCSV(UI.getModalFilename(), UI.getExportOptions());
-        label.textContent = 'Download started';
-        UI.closeModal();
-      } catch (err) {
-        UI.toast((err && err.message) ? err.message : 'Export failed.', 'error');
-      } finally {
-        btnCsv.disabled = false;
-        label.textContent = old;
-      }
-    });
-  }
-
-  var filenameInput = document.getElementById('export-filename');
-  if (filenameInput) {
-    filenameInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') {
-        App.io.exportJSON(UI.getModalFilename(), UI.getExportOptions())
-          .then(function () {
-            UI.closeModal();
-          })
-          .catch(function (err) {
-            UI.toast((err && err.message) ? err.message : 'Export failed.', 'error');
-          });
-      }
-    });
-  }
-
-  /* ──────────────────────────────────────────────────────
-     THEME TOGGLE
-  ────────────────────────────────────────────────────── */
-  var themeBtn = document.getElementById('btn-theme-toggle');
-  if (themeBtn) {
-    themeBtn.addEventListener('click', function () {
-      var root = document.documentElement;
-      var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-      root.setAttribute('data-theme', next);
-      try { localStorage.setItem('b2g-theme', next); } catch (_) {}
-      var icon = themeBtn.querySelector('i[data-lucide]');
-      if (icon) icon.setAttribute('data-lucide', next === 'light' ? 'moon' : 'sun');
-      if (window.lucide) lucide.createIcons();
-    });
-  }
+  const themeSelect = document.getElementById('theme-select');
+  themeSelect.addEventListener('change', () => UI.setTheme(themeSelect.value));
 
   /* ──────────────────────────────────────────────────────
      CURRENCY SELECTOR

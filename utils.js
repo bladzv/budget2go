@@ -44,10 +44,12 @@
    * Optionally allows negative values.
    */
   function safeNum(v, allowNeg) {
-    const n = parseFloat(String(v == null ? 0 : v).replace(/[^0-9.\-]/g, ''));
+    const raw = String(v == null ? 0 : v).trim();
+    const n = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(raw)
+      ? Number(raw) : parseFloat(raw.replace(/[^0-9.\-]/g, ''));
     if (!isFinite(n)) return 0;
     if (!allowNeg && n < 0) return 0;
-    return Math.round(n * 100) / 100; // max 2 decimal places
+    return Math.abs(n) > Number.MAX_VALUE / 100 ? n : Math.round(n * 100) / 100; // max 2 decimal places
   }
 
   /**
@@ -67,6 +69,7 @@
   /* ──────────────────────────────────────────────────────
      FORMATTING
   ────────────────────────────────────────────────────── */
+  let _useGrouping = true;
   let _currencyCode   = 'PHP';
   let _currencyLocale = 'en-PH';
   let _currencyFormatter = new Intl.NumberFormat('en-PH', {
@@ -80,7 +83,7 @@
       const c = String(code  || 'PHP').toUpperCase().slice(0, 10);
       const l = String(locale || 'en-PH').slice(0, 20);
       _currencyFormatter = new Intl.NumberFormat(l, {
-        style: 'currency', currency: c,
+        style: 'currency', currency: c, useGrouping: _useGrouping,
       });
       _currencyCode   = c;
       _currencyLocale = l;
@@ -92,9 +95,48 @@
   /** Return the active ISO currency code (e.g. "PHP", "USD"). */
   function getCurrencyCode() { return _currencyCode; }
 
+  /** Match the currency symbol used by the active display formatter. */
+  function getCurrencySymbol() {
+    return _currencyFormatter.formatToParts(0).find(part => part.type === 'currency')?.value || _currencyCode;
+  }
+
   /** Format a number using the active display currency. */
-  function fmt(n) {
-    return _currencyFormatter.format(n || 0);
+  function fmt(n, fractionDigits) {
+    // An apply action must show the exact amount, even for currencies such as JPY.
+    const formatter = fractionDigits == null ? _currencyFormatter : new Intl.NumberFormat(_currencyLocale, {
+      style:'currency', currency:_currencyCode, useGrouping:_useGrouping,
+      minimumFractionDigits:fractionDigits, maximumFractionDigits:fractionDigits,
+    });
+    const parts = formatter.formatToParts(n || 0);
+    return parts.map((part, index) => part.value +
+      (part.type === 'currency' && parts[index + 1]?.type === 'integer' ? '\u00a0' : '')).join('');
+  }
+
+  function setGrouping(enabled) {
+    _useGrouping = !!enabled;
+    setCurrency(_currencyCode, _currencyLocale);
+  }
+  function formatAmount(value, grouping = _useGrouping) {
+    return new Intl.NumberFormat(_currencyLocale, { useGrouping: grouping, maximumFractionDigits: 2 }).format(value || 0);
+  }
+  function parseAmount(value) {
+    const parts = new Intl.NumberFormat(_currencyLocale).formatToParts(12345.6);
+    const group = parts.find(part => part.type === 'group')?.value;
+    const decimal = parts.find(part => part.type === 'decimal')?.value || '.';
+    let raw = String(value).trim();
+    if (!raw) return null;
+    if (group && raw.includes(group)) {
+      const mantissa = raw.split(/[eE]/)[0];
+      const [integer, fraction = ''] = mantissa.split(decimal);
+      const chunks = integer.split(group);
+      if (fraction.includes(group) || chunks.length < 2 || !/^\+?\d{1,3}$/.test(chunks[0]) ||
+          chunks.slice(1).some(chunk => !/^\d{3}$/.test(chunk))) return null;
+      raw = raw.split(group).join('');
+    }
+    raw = raw.replace(/[\s\u00a0\u202f]/g, '').replace(decimal, '.');
+    if (!/^\+?(?:\d+(?:\.\d{0,2})?|\.\d{1,2})(?:e[+-]?\d+)?$/i.test(raw)) return null;
+    const number = Number(raw);
+    return Number.isFinite(number) && number >= 0 ? number : null;
   }
 
   /** Format an ISO date string as short human-readable date. */
@@ -145,5 +187,5 @@
   /* ──────────────────────────────────────────────────────
      EXPORT
   ────────────────────────────────────────────────────── */
-  App.utils = { esc, safeStr, safeNum, sanitizeFilename, fmt, setCurrency, getCurrencyCode, fmtDate, uid, defaultFilename };
+  App.utils = { esc, safeStr, safeNum, sanitizeFilename, fmt, setCurrency, getCurrencyCode, getCurrencySymbol, setGrouping, formatAmount, parseAmount, fmtDate, uid, defaultFilename };
 })();

@@ -10,11 +10,7 @@
     if (!window.App || !App.render || !App.ui) return;
 
     // 0. Restore user preferences (theme & currency) before first render
-    var savedTheme = 'dark';
-    try { savedTheme = localStorage.getItem('b2g-theme') || 'dark'; } catch (_) {}
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    var themeIcon = document.querySelector('#btn-theme-toggle i[data-lucide]');
-    if (themeIcon) themeIcon.setAttribute('data-lucide', savedTheme === 'light' ? 'moon' : 'sun');
+    App.ui.initShell();
 
     var restored = App.persistence.restore();
     var savedCurrency = restored ? App.state.getCurrency() : 'PHP|en-PH';
@@ -47,10 +43,7 @@
       console.warn('[BudgetOS] Lucide icons CDN not loaded — icons will be missing.');
     }
 
-    // 5. Brief welcome notification
-    if (App.state.currentMonth() > App.state.activeMonth()) {
-      App.ui.toast('A new month is available. Use Start New Month when you are ready.', 'info');
-    }
+    App.ui.showWelcome();
   }
 
   // Wait for full DOM before initialising

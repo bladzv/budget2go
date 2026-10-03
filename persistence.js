@@ -10,6 +10,7 @@
     if (!el) return;
     el.textContent = label;
     el.dataset.state = state;
+    el.hidden = state !== 'error';
   }
 
   function restore() {
@@ -48,13 +49,20 @@
     timer = setTimeout(flush, 300);
   }
 
-  function clear() {
+  function clear({ resumeAfter = true } = {}) {
     if (timer) clearTimeout(timer);
     timer = null;
     suspended = true;
-    try { localStorage.removeItem(KEY); } catch (_) {}
+    try {
+      localStorage.removeItem(KEY);
+      if (localStorage.getItem(KEY) !== null) throw new Error('Draft remains');
+    } catch (_) {
+      status('Could not delete saved draft — try wiping again', 'error');
+      return false;
+    }
     status('No local draft', 'idle');
-    setTimeout(() => { suspended = false; }, 0);
+    if (resumeAfter) suspended = false;
+    return true;
   }
 
   function resume() { suspended = false; }

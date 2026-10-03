@@ -45,6 +45,7 @@
    * @property {string}      name
    * @property {number}      amount
    * @property {boolean}     paid
+   * @property {boolean}     recurring — copied into the next monthly plan
    * @property {string|null} loanId         — links to Loans entry if created via "→ To Budget"
    * @property {string|null} lastPaymentId  — id of the payment recorded when marked paid
    *
@@ -73,22 +74,26 @@
   const monthKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   let activeMonth = monthKey();
   let viewedMonth = activeMonth;
-  let months = {};
+  let months = { [activeMonth]: state };
   let currency = 'PHP|en-PH';
   const clone = (value) => JSON.parse(JSON.stringify(value));
-  const visibleState = () => viewedMonth === activeMonth ? state : months[viewedMonth];
+  const visibleState = () => state;
+  const validMonth = (key) => typeof key === 'string' && /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(key);
+  const emptyState = () => ({ salary: [], savings: [], budget: [], loans: [] });
+  const hasEntries = (value) => Object.values(value).some(entries => entries.length);
+  function hasData() { return Object.values(months).some(hasEntries); }
 
   /** Replace the entire state (used by import). Returns the new state. */
   function setState(newState) {
     state = newState;
-    viewedMonth = activeMonth;
+    months[viewedMonth] = state;
     return state;
   }
   function resetDocument() {
     state = { salary: [], savings: [], budget: [], loans: [] };
-    months = {};
     activeMonth = monthKey();
     viewedMonth = activeMonth;
+    months = { [activeMonth]: state };
     currency = 'PHP|en-PH';
   }
 
@@ -98,47 +103,70 @@
   }
 
   function getDocument() {
-    return { version: 2, activeMonth, currency, months: { ...clone(months), [activeMonth]: clone(state) } };
+    return { version: 3, activeMonth, viewedMonth, currency, months: clone(months) };
   }
 
   function loadDocument(doc) {
-    if (!doc || doc.version !== 2 || !/^\d{4}-(0[1-9]|1[0-2])$/.test(doc.activeMonth) ||
-        !doc.months || !doc.months[doc.activeMonth]) return false;
+    if (!doc || ![2, 3].includes(doc.version) || !validMonth(doc.activeMonth) ||
+        !doc.months || Array.isArray(doc.months) || !doc.months[doc.activeMonth]) return false;
+    const keys = Object.keys(doc.months);
     const validState = (value) => value && ['salary', 'savings', 'budget', 'loans'].every((key) => Array.isArray(value[key]));
-    if (Object.keys(doc.months).some((key) => !/^\d{4}-(0[1-9]|1[0-2])$/.test(key) || key > doc.activeMonth) ||
+    if (keys.length > 120 || keys.some((key) => !validMonth(key)) ||
         !Object.values(doc.months).every(validState)) return false;
+    if (doc.version === 3 && (!validMonth(doc.viewedMonth) || !doc.months[doc.viewedMonth])) return false;
     months = clone(doc.months);
-    activeMonth = doc.activeMonth;
-    state = clone(months[activeMonth]);
-    delete months[activeMonth];
-    viewedMonth = activeMonth;
+    activeMonth = keys.sort().at(-1);
+    viewedMonth = doc.version === 3 ? doc.viewedMonth : doc.activeMonth;
+    state = months[viewedMonth];
     currency = typeof doc.currency === 'string' ? doc.currency : 'PHP|en-PH';
     return true;
   }
 
-  function listMonths() { return [...Object.keys(months), activeMonth].sort(); }
+  function listMonths() { return Object.keys(months).sort(); }
   function viewMonth(key) {
-    if (key !== activeMonth && !months[key]) return false;
+    if (!validMonth(key) || !months[key]) return false;
     viewedMonth = key;
+    state = months[key];
     return true;
   }
-  function isReadOnly() { return viewedMonth !== activeMonth; }
-  function rollover(target = monthKey()) {
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(target) || target <= activeMonth) return false;
-    months[activeMonth] = clone(state);
-    const next = clone(state);
+  function isReadOnly() { return false; }
+  function createMonth(key) {
+    if (!validMonth(key)) return false;
+    if (!months[key]) {
+      if (listMonths().length >= 120) return false;
+      months[key] = emptyState();
+      if (key > activeMonth) activeMonth = key;
+    }
+    return viewMonth(key);
+  }
+  function copyRecurring(source) {
+    if (source === viewedMonth || !months[source] || hasEntries(state)) return false;
+    const next = clone(months[source]);
     next.salary = next.salary.map((item) => ({ ...item, id: uid() }));
+    next.savings = next.savings.map((item) => ({ ...item, id: uid() }));
+    // Loans are independent snapshots, including their existing payment history.
+    const loanIds = new Map(next.loans.map(loan => [loan.id, uid()]));
     const linkedIds = new Map();
     next.budget = next.budget.filter((item) => item.recurring || item.loanId).map((item) => {
       const id = uid();
-      if (item.loanId) linkedIds.set(item.loanId, id);
-      return { ...item, id, paid: false, lastPaymentId: null };
+      const loanId = loanIds.get(item.loanId) || null;
+      if (loanId) linkedIds.set(loanId, id);
+      return { ...item, id, loanId, paid: false, lastPaymentId: null };
     });
-    next.loans.forEach((loan) => { loan.budgetEntryId = linkedIds.get(loan.id) || null; });
+    next.loans.forEach((loan) => {
+      loan.id = loanIds.get(loan.id);
+      loan.budgetEntryId = linkedIds.get(loan.id) || null;
+    });
     state = next;
-    activeMonth = target;
-    viewedMonth = target;
+    months[viewedMonth] = state;
     return true;
+  }
+  // Retained for callers that explicitly request a recurring rollover.
+  function rollover(target = monthKey()) {
+    if (!validMonth(target) || target <= activeMonth || months[target]) return false;
+    const source = viewedMonth;
+    if (!createMonth(target)) return false;
+    return copyRecurring(source);
   }
   function getCurrency() { return currency; }
   function setCurrency(value) { currency = value; }
@@ -202,8 +230,10 @@
   /* ──────────────────────────────────────────────────────
      MUTATIONS — SALARY
   ────────────────────────────────────────────────────── */
-  function addSalary() {
-    state.salary.push({ id: uid(), source: '', amount: 0, frequency: 'monthly' });
+  function addSalary(values = {}) {
+    const entry = { id: uid(), source: safeStr(values.source || '', 100), amount: safeNum(values.amount), frequency: VALID_FREQS.has(values.frequency) ? values.frequency : 'monthly' };
+    state.salary.push(entry);
+    return entry.id;
   }
 
   function deleteSalary(id) {
@@ -221,8 +251,10 @@
   /* ──────────────────────────────────────────────────────
      MUTATIONS — SAVINGS
   ────────────────────────────────────────────────────── */
-  function addSavings() {
-    state.savings.push({ id: uid(), location: '', amount: 0 });
+  function addSavings(values = {}) {
+    const entry = { id: uid(), location: safeStr(values.location || '', 100), amount: safeNum(values.amount) };
+    state.savings.push(entry);
+    return entry.id;
   }
 
   function deleteSavings(id) {
@@ -239,16 +271,18 @@
   /* ──────────────────────────────────────────────────────
      MUTATIONS — BUDGET
   ────────────────────────────────────────────────────── */
-  function addBudget(name, amount, loanId) {
-    state.budget.push({
+  function addBudget(name, amount, loanId, recurring = false) {
+    const entry = {
       id: uid(),
       name: safeStr(name || '', 100),
       amount: safeNum(amount),
       paid: false,
       loanId: loanId || null,
       lastPaymentId: null,
-      recurring: false,
-    });
+      recurring: !!recurring,
+    };
+    state.budget.push(entry);
+    return entry.id;
   }
 
   function deleteBudget(id) {
@@ -306,17 +340,19 @@
   /* ──────────────────────────────────────────────────────
      MUTATIONS — LOANS
   ────────────────────────────────────────────────────── */
-  function addLoan() {
-    state.loans.push({
+  function addLoan(values = {}) {
+    const entry = {
       id: uid(),
-      name: '',
-      total: 0,
-      frequency: 'monthly',
-      paymentAmount: 0,
-      monthsPaid: 0,
+      name: safeStr(values.name || '', 100),
+      total: safeNum(values.total),
+      frequency: VALID_FREQS.has(values.frequency) ? values.frequency : 'monthly',
+      paymentAmount: safeNum(values.paymentAmount),
+      monthsPaid: Math.max(0, Math.floor(safeNum(values.monthsPaid))),
       budgetEntryId: null,
       payments: [],
-    });
+    };
+    state.loans.push(entry);
+    return entry.id;
   }
 
   function deleteLoan(id) {
@@ -366,6 +402,10 @@
     loadDocument,
     listMonths,
     viewMonth,
+    createMonth,
+    copyRecurring,
+    hasData,
+    validMonth,
     rollover,
     activeMonth: () => activeMonth,
     viewedMonth: () => viewedMonth,

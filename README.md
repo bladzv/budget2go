@@ -24,16 +24,16 @@ It supports JSON/CSV import and export, password-protected encrypted `.bgo` file
 
 ## Features
 - Realtime totals and summary stats while editing fields
-- Versioned monthly plans, local autosave, and read-only history
-- New-month rollover that copies income, recurring expenses, and linked loan payments
+- Independently editable monthly plans, a month/year picker, and local autosave
+- Empty new months with optional copying of recurring items from another month
 - Paid loan budget items record dated payments and update loan progress; recent actions can be undone
 - Loan tracking with `Months Paid` support and progress calculations
 - Budget item paid state for visual tracking of completed expenses
 - Single budget currency with common presets: PHP, USD, EUR, GBP, JPY, SGD. Switching the label never converts amounts.
-- Light/dark theme toggle with saved preference
+- System, light, and dark appearance with saved preference
 - Privacy dashboard with local storage/cache/export/network visibility
 - One-click local data wipe (state, preferences, and offline caches)
-- Calculator "Use Result" action to apply computed values into focused amount fields
+- Calculator controls beside amount fields, with an explicit destination and a valid, non-negative result before applying; the floating calculator also works independently
 - Installable PWA with offline caching
 - Export options:
   - Plain JSON
@@ -43,9 +43,13 @@ It supports JSON/CSV import and export, password-protected encrypted `.bgo` file
   - JSON / CSV
   - Encrypted `.bgo` with password
   - Preview and explicit confirmation before replacing the local draft
+- Five focused views: Overview, Budget, Accounts, Loans, and Settings
+- Overview with unallocated income, planned/unpaid commitments, and payment progress
+- Staged entry forms; quick amount edits commit on Enter or blur, and Escape cancels
+- All, Unpaid, and Paid budget filters; full loan payment history in paginated details
 - Responsive layout:
-  - Desktop: card-based dashboard
-  - Mobile: stacked card rows for each table
+  - Desktop: sidebar navigation, tables, and loan progress cards
+  - Mobile: bottom navigation, stacked rows, and entry sheets
 
 ## Tech Stack
 - HTML5
@@ -157,9 +161,13 @@ budget2go/
 
 ## Monthly Workflow
 
-The latest month is editable. Earlier months remain available as read-only snapshots. When the calendar advances, **Start New Month** copies income, recurring budget items, and linked loan items into the new month with paid states reset. Savings and loans carry forward. Mark a linked loan budget item paid to record a payment; **Undo** reverses that action for six seconds.
+Open **Overview** for the monthly plan, **Budget** to add expenses or mark items paid, **Accounts** for income and savings, and **Loans** for repayments. Choose a month with the shared month picker. **Unallocated income** means monthly income minus planned commitments; it is not a bank balance. Backups, currency, appearance, and privacy controls are in **Settings**. The header offers **Export** when a document has data, and **Import** when it is empty.
 
-The app saves edits locally and shows the save state in the header. JSON and CSV exports include all months; CSV also includes spreadsheet-friendly tables for the latest viewed month. Importing either format previews its contents before replacing the current draft. A storage failure is shown in the header; export a backup if that happens.
+Add entries through a form and save when ready; closing the form discards unfinished changes. Select an account or loan name to edit its details; use the pencil button beside a budget item to edit an expense. Quick amount edits save on Enter or when leaving the field; Escape restores the prior amount.
+
+The month picker supports every month from year 1 to 9999, with up to 120 saved months in a document. Past and future months are independently editable. Opening a new month starts an empty plan. **Copy recurring items** optionally copies income, savings, loans (including starting progress and payment history), recurring expenses and linked loan items from a chosen month, with paid checkboxes reset. Changes remain confined to the selected month. Mark a linked loan budget item paid to record a payment; **Undo** reverses that action for six seconds.
+
+The app saves edits locally. The header offers Import for an empty document and Export when financial data exists in any month. Version 3 JSON and CSV backups preserve all months, the selected month and currency; CSV also includes spreadsheet-friendly tables with a month column. Older JSON, CSV and encrypted backups remain importable. Importing either format previews its contents before replacing the current draft. A storage failure is shown above the page heading; export a backup if that happens.
 
 ## Privacy Disclaimer
 - Budget2Go is a static client-side web application.
@@ -170,3 +178,9 @@ The app saves edits locally and shows the save state in the header. JSON and CSV
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
+
+Thousands separators are enabled by default for monetary values, with a saved toggle in Settings. Currency-specific separators are supported in amount fields; backup amounts remain numbers. Loan steppers adjust months paid before tracking, separately from recorded payments.
+
+First visits show a welcome introduction explaining monthly planning, savings, loans, and local backups. Its dismissal is remembered in this browser, including after a wipe.
+
+Exports offer an optional **Wipe local data after export** checkbox. After the download starts, choose **I saved my backup — wipe data** only once your file is saved. **Keep data**, closing the dialog, or an export error retains your records. A confirmed wipe clears all months, preferences, export metadata, offline caches, Undo, and pending imports, while keeping the welcome dismissal marker. Failed deletion is reported; an undeleted saved draft is kept for recovery.

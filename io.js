@@ -173,13 +173,14 @@
         triggerDownload(encrypted, filename, 'application/json;charset=utf-8;');
         recordExportMeta(filename, true);
         App.ui.toast('Encrypted download started: ' + filename, 'success');
+        return { filename, format: 'json', encrypted: true };
       });
     }
     const filename = resolveFilename(rawFilename, '.json');
     triggerDownload(data, filename, 'application/json;charset=utf-8;');
     recordExportMeta(filename, false);
     App.ui.toast('Download started: ' + filename, 'success');
-    return Promise.resolve();
+    return Promise.resolve({ filename, format: 'json', encrypted: false });
   }
 
   /* ──────────────────────────────────────────────────────
@@ -203,50 +204,35 @@
   }
 
   function buildCSV() {
-    const st = S.getExport();
+    const doc = S.getDocument();
     const lines = [];
 
     // A compact, quoted document row preserves all months and metadata. The
-    // following legacy tables keep the active view easy to open in a sheet.
+    // following tables include a month column for spreadsheet filtering.
     lines.push('## DOCUMENT_JSON');
     lines.push('json');
     lines.push(csvRow([JSON.stringify(S.getDocument())]));
     lines.push('');
 
-    // ── SALARY ──
-    lines.push('## SALARY');
-    lines.push(csvRow(['id', 'source', 'amount', 'frequency']));
-    st.salary.forEach((s) => lines.push(csvRow([s.id, s.source, s.amount, s.frequency])));
-    lines.push('');
-
-    // ── SAVINGS ──
-    lines.push('## SAVINGS');
-    lines.push(csvRow(['id', 'location', 'amount']));
-    st.savings.forEach((s) => lines.push(csvRow([s.id, s.location, s.amount])));
-    lines.push('');
-
-    // ── BUDGET ──
-    lines.push('## BUDGET');
-    lines.push(csvRow(['id', 'name', 'amount', 'paid', 'loanId', 'lastPaymentId', 'recurring']));
-    st.budget.forEach((b) =>
-      lines.push(csvRow([b.id, b.name, b.amount, b.paid, b.loanId || '', b.lastPaymentId || '', !!b.recurring]))
-    );
-    lines.push('');
-
-    // ── LOANS ──
-    lines.push('## LOANS');
-    lines.push(csvRow(['id', 'name', 'total', 'frequency', 'paymentAmount', 'monthsPaid', 'budgetEntryId']));
-    st.loans.forEach((l) =>
-      lines.push(csvRow([l.id, l.name, l.total, l.frequency, l.paymentAmount, l.monthsPaid, l.budgetEntryId || '']))
-    );
-    lines.push('');
-
-    // ── LOAN_PAYMENTS ──
-    lines.push('## LOAN_PAYMENTS');
-    lines.push(csvRow(['loanId', 'id', 'date', 'amount']));
-    st.loans.forEach((l) => {
-      (l.payments || []).forEach((p) => lines.push(csvRow([l.id, p.id, p.date, p.amount])));
-    });
+    const sections = [
+      ['SALARY', 'salary', ['id', 'source', 'amount', 'frequency']],
+      ['SAVINGS', 'savings', ['id', 'location', 'amount']],
+      ['BUDGET', 'budget', ['id', 'name', 'amount', 'paid', 'loanId', 'lastPaymentId', 'recurring']],
+      ['LOANS', 'loans', ['id', 'name', 'total', 'frequency', 'paymentAmount', 'monthsPaid', 'budgetEntryId']],
+    ];
+    for (const [title, kind, fields] of sections) {
+      lines.push('## ' + title, csvRow(['month', ...fields]));
+      for (const month of Object.keys(doc.months).sort()) {
+        for (const entry of doc.months[month][kind]) lines.push(csvRow([month, ...fields.map(key => entry[key] ?? '')]));
+      }
+      lines.push('');
+    }
+    lines.push('## LOAN_PAYMENTS', csvRow(['month', 'loanId', 'id', 'date', 'amount']));
+    for (const month of Object.keys(doc.months).sort()) {
+      for (const loan of doc.months[month].loans) {
+        for (const payment of loan.payments || []) lines.push(csvRow([month, loan.id, payment.id, payment.date, payment.amount]));
+      }
+    }
 
     return lines.join('\r\n');
   }
@@ -260,13 +246,14 @@
         triggerDownload(encrypted, filename, 'application/json;charset=utf-8;');
         recordExportMeta(filename, true);
         App.ui.toast('Encrypted download started: ' + filename, 'success');
+        return { filename, format: 'csv', encrypted: true };
       });
     }
     const filename = resolveFilename(rawFilename, '.csv');
     triggerDownload(csv, filename, 'text/csv;charset=utf-8;');
     recordExportMeta(filename, false);
     App.ui.toast('Download started: ' + filename, 'success');
-    return Promise.resolve();
+    return Promise.resolve({ filename, format: 'csv', encrypted: false });
   }
 
   /* ──────────────────────────────────────────────────────
@@ -353,21 +340,23 @@
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new Error('JSON root must be an object.');
     }
-    if (data.version === 2) {
+    if ([2, 3].includes(data.version)) {
       if (!data.months || typeof data.months !== 'object' || Array.isArray(data.months) ||
           Object.keys(data.months).length > 120 || !data.months[data.activeMonth]) {
         throw new Error('Invalid monthly document.');
       }
       const months = {};
       for (const [key, value] of Object.entries(data.months)) {
-        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) throw new Error('Invalid month key.');
+        if (!S.validMonth(key)) throw new Error('Invalid month key.');
         months[key] = sanitizeState(value);
       }
       const allowed = new Set(['PHP|en-PH', 'USD|en-US', 'EUR|de-DE', 'GBP|en-GB', 'JPY|ja-JP', 'SGD|en-SG']);
-      return { version: 2, activeMonth: data.activeMonth,
+      if (!S.validMonth(data.activeMonth) || (data.version === 3 && (!S.validMonth(data.viewedMonth) || !months[data.viewedMonth]))) throw new Error('Invalid selected month.');
+      return { version: 3, activeMonth: Object.keys(months).sort().at(-1), viewedMonth: data.version === 3 ? data.viewedMonth : data.activeMonth,
         currency: allowed.has(data.currency) ? data.currency : 'PHP|en-PH', months };
     }
-    return { version: 2, activeMonth: S.currentMonth(), currency: S.getCurrency(),
+    if (data.version != null && data.version !== 1) throw new Error('Unsupported budget document version.');
+    return { version: 3, activeMonth: S.currentMonth(), viewedMonth: S.currentMonth(), currency: S.getCurrency(),
       months: { [S.currentMonth()]: sanitizeState(data) } };
   }
 
@@ -472,7 +461,7 @@
     };
 
     const month = S.currentMonth();
-    return { version: 2, activeMonth: month, currency: S.getCurrency(),
+    return { version: 3, activeMonth: month, viewedMonth: month, currency: S.getCurrency(),
       months: { [month]: sanitizeState(newState) } };
   }
 
