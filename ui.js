@@ -38,6 +38,7 @@
     el.appendChild(iconEl);
     el.appendChild(msgEl);
     container.appendChild(el);
+    while (container.children.length > 3) container.firstElementChild.remove();
 
     // Render Lucide icon inside toast
     if (window.lucide && typeof lucide.createIcons === 'function') {
@@ -50,6 +51,54 @@
       clearTimeout(timer);
       dismissToast(el);
     });
+  }
+
+  let undoTimer = null;
+  let undoAction = null;
+  function showUndo(message, action) {
+    const bar = document.getElementById('undo-snackbar');
+    const label = document.getElementById('undo-message');
+    if (!bar || !label) return;
+    if (undoTimer) clearTimeout(undoTimer);
+    undoAction = action;
+    label.textContent = message;
+    bar.hidden = false;
+    bar.classList.remove('closing');
+    const progress = bar.querySelector('.undo-timer');
+    if (progress) {
+      progress.style.animation = 'none';
+      void progress.offsetWidth;
+      progress.style.animation = '';
+    }
+    undoTimer = setTimeout(() => { bar.hidden = true; undoAction = null; }, 6000);
+  }
+
+  function initUndo() {
+    const button = document.getElementById('btn-undo');
+    if (!button) return;
+    button.addEventListener('click', () => {
+      if (undoAction) undoAction();
+      undoAction = null;
+      clearTimeout(undoTimer);
+      document.getElementById('undo-snackbar').hidden = true;
+    });
+  }
+
+  let activeDialog = null;
+  let dialogReturnFocus = null;
+  function openDialog(modal, focusTarget) {
+    dialogReturnFocus = document.activeElement;
+    activeDialog = modal;
+    modal.removeAttribute('hidden');
+    requestAnimationFrame(() => (focusTarget || modal.querySelector('button, input, select')).focus());
+  }
+  function closeDialog(modal) {
+    if (!modal) return;
+    modal.setAttribute('hidden', '');
+    if (activeDialog === modal) {
+      activeDialog = null;
+      if (dialogReturnFocus && document.contains(dialogReturnFocus)) dialogReturnFocus.focus();
+    }
   }
 
   function dismissToast(el) {
@@ -126,14 +175,13 @@
     const encChk   = exportEncryptEl();
 
     if (!modal) return;
-    modal.removeAttribute('hidden');
+    openDialog(modal, fnInput);
     if (preview) preview.textContent = defaultFilename() + '.json';
     if (fnInput) fnInput.value = '';
     if (encChk) encChk.checked = false;
     if (exportPwdEl()) exportPwdEl().value = '';
     syncExportEncryptionUI();
     syncExportTargetHints();
-    if (fnInput) setTimeout(() => fnInput.focus(), 60);
 
     if (window.lucide && typeof lucide.createIcons === 'function') {
       lucide.createIcons();
@@ -142,7 +190,7 @@
 
   function closeModal() {
     const modal = exportModalEl();
-    if (modal) modal.setAttribute('hidden', '');
+    closeDialog(modal);
   }
 
   function getModalFilename() {
@@ -177,6 +225,7 @@
   const privacyLastEncryptedEl = () => document.getElementById('privacy-last-encrypted');
   const privacyOutboundEl  = () => document.getElementById('privacy-outbound-count');
   let pendingImportFile = null;
+  let previewDocument = null;
   let calcLastTargetInput = null;
   let privacyMonitorInstalled = false;
   const privacyStats = {
@@ -255,6 +304,11 @@
 
   function setPendingImportFile(file) {
     pendingImportFile = file || null;
+    previewDocument = null;
+    const preview = document.getElementById('import-preview');
+    if (preview) preview.hidden = true;
+    const submit = importSubmitEl();
+    if (submit) submit.textContent = 'Preview Import';
     const chk = importEncryptedEl();
     if (!pendingImportFile && chk) chk.checked = false;
     if (importPwdEl()) importPwdEl().value = '';
@@ -271,7 +325,7 @@
   function openImportModal() {
     const modal = importModalEl();
     if (!modal) return;
-    modal.removeAttribute('hidden');
+    openDialog(modal, importDropZoneEl());
     setPendingImportFile(null);
     if (window.lucide && typeof lucide.createIcons === 'function') {
       lucide.createIcons();
@@ -280,28 +334,48 @@
 
   function closeImportModal() {
     const modal = importModalEl();
-    if (modal) modal.setAttribute('hidden', '');
+    closeDialog(modal);
   }
 
   function getImportOptions() {
-    const encrypted = !!(importEncryptedEl() && importEncryptedEl().checked);
+    const encrypted = selectedImportExt() === 'bgo' || !!(importEncryptedEl() && importEncryptedEl().checked);
     return {
       encrypted: encrypted,
       password: encrypted ? ((importPwdEl() || {}).value || '') : '',
     };
   }
 
-  function submitImport() {
+  async function submitImport() {
     if (!pendingImportFile) return;
-    App.io.processFile(
-      pendingImportFile,
-      () => {
-        App.render.all();
+    const button = importSubmitEl();
+    if (previewDocument) {
+      try {
+        App.io.applyImport(previewDocument);
+        const saved = App.persistence.flush();
         closeImportModal();
         setPendingImportFile(null);
-      },
-      getImportOptions()
-    );
+        toast(saved ? 'Import complete. Local draft saved.' : 'Import complete, but local saving failed. Export a backup.', saved ? 'success' : 'error');
+      } catch (err) { toast('Import failed: ' + String(err.message || err), 'error'); }
+      return;
+    }
+    if (button) { button.disabled = true; button.textContent = 'Reading…'; }
+    try {
+      const doc = await App.io.processFile(pendingImportFile, null, getImportOptions());
+      previewDocument = doc;
+      const preview = document.getElementById('import-preview');
+      const count = Object.keys(doc.months).length;
+      const current = doc.months[doc.activeMonth];
+      if (preview) {
+        preview.textContent = `${count} month${count === 1 ? '' : 's'} · latest ${doc.activeMonth} · ${doc.currency.split('|')[0]} · ${current.salary.length} income · ${current.budget.length} budget items · ${current.loans.length} loans. Import will replace this device's current draft.`;
+        preview.hidden = false;
+      }
+      if (button) button.textContent = 'Replace Draft and Import';
+    } catch (err) {
+      toast('Import failed: ' + String(err.message || err), 'error');
+      if (button) button.textContent = 'Preview Import';
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   function fmtBytes(bytes) {
@@ -417,7 +491,7 @@
   function openPrivacyModal() {
     const modal = privacyModalEl();
     if (!modal) return;
-    modal.removeAttribute('hidden');
+    openDialog(modal, document.getElementById('btn-privacy-close'));
     refreshPrivacyDashboard();
     if (window.lucide && typeof lucide.createIcons === 'function') {
       lucide.createIcons();
@@ -426,14 +500,15 @@
 
   function closePrivacyModal() {
     const modal = privacyModalEl();
-    if (modal) modal.setAttribute('hidden', '');
+    closeDialog(modal);
   }
 
   async function wipeAllData() {
     const confirmed = window.confirm('This will wipe all local Budget2Go data, preferences, and offline caches. Continue?');
     if (!confirmed) return false;
 
-    App.state.set({ salary: [], savings: [], budget: [], loans: [] });
+    App.state.resetDocument();
+    App.persistence.clear();
 
     try {
       localStorage.removeItem('b2g-theme');
@@ -444,14 +519,15 @@
     try {
       if ('caches' in window) {
         const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
+        await Promise.all(keys.filter((k) => k.startsWith('workbox-')).map((k) => caches.delete(k)));
       }
     } catch (_) {}
 
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
+        const ownScope = new URL('./', window.location.href).href;
+        await Promise.all(regs.filter((r) => r.scope === ownScope).map((r) => r.unregister()));
       }
     } catch (_) {}
 
@@ -463,6 +539,7 @@
     }
     privacyStats.outboundRequests = 0;
     App.render.all();
+    App.persistence.clear();
     toast('All local data wiped from this browser.', 'success');
     return true;
   }
@@ -767,6 +844,14 @@
 
   // Close on Escape
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' && activeDialog) {
+      const focusable = [...activeDialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex="0"]')].filter((node) => !node.closest('[hidden]'));
+      if (focusable.length) {
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
     if (e.key !== 'Escape') return;
     if (exportModalEl() && !exportModalEl().hasAttribute('hidden')) closeModal();
     if (importModalEl() && !importModalEl().hasAttribute('hidden')) closeImportModal();
@@ -794,6 +879,10 @@
   function syncScreenMode() {
     const isCompact = window.matchMedia('(max-width: 860px)').matches;
     document.body.classList.toggle('stack-layout', isCompact);
+    const mobileCards = window.matchMedia('(max-width: 639px)').matches;
+    document.querySelectorAll('.loan-row').forEach((row) => {
+      row.querySelectorAll('.loan-detail').forEach((cell) => { cell.inert = mobileCards && !row.classList.contains('details-open'); });
+    });
   }
 
   /* ──────────────────────────────────────────────────────
@@ -864,6 +953,8 @@
   ────────────────────────────────────────────────────── */
   App.ui = {
     toast,
+    showUndo,
+    initUndo,
     openModal,
     closeModal,
     getModalFilename,

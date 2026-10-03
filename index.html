@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-  <meta http-equiv="X-Frame-Options" content="DENY">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Budget2Go — Personal Finance Manager</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <meta name="theme-color" content="#0F0F1A" id="meta-theme-color">
@@ -28,7 +26,7 @@
         <span class="brand-subtitle">Personal Finance Manager</span>
       </div>
       <div class="header-actions">
-        <select class="select-currency" id="currency-select" aria-label="Select display currency">
+        <select class="select-currency" id="currency-select" aria-label="Budget currency; changing this relabels amounts without conversion">
           <option value="PHP|en-PH">₱ PHP</option>
           <option value="USD|en-US">$ USD</option>
           <option value="EUR|de-DE">€ EUR</option>
@@ -36,6 +34,7 @@
           <option value="JPY|ja-JP">¥ JPY</option>
           <option value="SGD|en-SG">S$ SGD</option>
         </select>
+        <span class="save-status" id="save-status" role="status" aria-live="polite" data-state="idle">No local draft</span>
         <button class="btn btn-ghost" id="btn-theme-toggle" aria-label="Toggle light/dark theme">
           <i data-lucide="sun" style="width:13px;height:13px;"></i>
         </button>
@@ -69,6 +68,11 @@
         Budget2Go is a static client-side web app. Your files are processed locally in your browser and are not uploaded to any server by this app.
       </p>
     </section>
+    <nav class="month-nav" aria-label="Budget months">
+      <div class="month-nav-title">Monthly plan <span id="month-mode-label"></span><small id="currency-note">Currency labels amounts; it does not convert them.</small></div>
+      <div class="month-tabs" id="month-tabs" role="group" aria-label="Choose month"></div>
+      <button class="btn btn-primary" id="btn-start-month" hidden>Start New Month</button>
+    </nav>
     <div class="main-content">
 
       <!-- ── SALARY / INCOME ── -->
@@ -113,7 +117,7 @@
             <div class="card-title-icon icon-green">
               <i data-lucide="piggy-bank" style="width:15px;height:15px;"></i>
             </div>
-            Current Savings
+            <span id="savings-heading">Current Savings</span>
           </div>
           <div class="card-header-right">
             <span class="section-total" id="savings-total">—</span>
@@ -181,7 +185,7 @@
             <div class="card-title-icon icon-red">
               <i data-lucide="credit-card" style="width:15px;height:15px;"></i>
             </div>
-            Active Loans
+            <span id="loans-heading">Active Loans</span>
           </div>
           <div class="card-header-right">
             <span class="section-total" id="loans-total">—</span>
@@ -219,7 +223,8 @@
        STICKY SUMMARY BAR
   ══════════════════════════════════════ -->
   <div class="summary-bar" role="status" aria-live="polite" aria-label="Financial summary">
-    <div class="summary-inner">
+    <button class="summary-toggle" id="btn-summary-toggle" aria-expanded="false" aria-controls="summary-inner">Full breakdown <span aria-hidden="true">⌃</span></button>
+    <div class="summary-inner" id="summary-inner">
       <div class="sum-stat">
         <span class="sum-label">Monthly Income</span>
         <span class="sum-value color-cyan" id="sum-income">₱0.00</span>
@@ -237,14 +242,15 @@
         <span class="sum-value" id="sum-loan-pmts">₱0.00</span>
       </div>
       <div class="sum-stat">
-        <span class="sum-label">Total Deductions</span>
+        <span class="sum-label">Planned Deductions</span>
         <span class="sum-value color-warning" id="sum-deductions">₱0.00</span>
       </div>
       <div class="sum-stat">
-        <span class="sum-label">Remaining</span>
+        <span class="sum-label">Planned Remaining</span>
         <span class="sum-value" id="sum-remaining">₱0.00</span>
       </div>
     </div>
+    <div class="summary-paid">Paid <strong id="sum-paid">₱0.00</strong> · Still planned <strong id="sum-pending">₱0.00</strong></div>
   </div>
 
   <button
@@ -331,6 +337,7 @@
           </div>
         </div>
         <p class="form-hint" id="import-file-meta" style="margin-top:10px;">No file selected.</p>
+        <div class="import-preview" id="import-preview" hidden role="status"></div>
         <label class="form-check" for="import-is-encrypted" style="margin-top:10px;">
           <input type="checkbox" id="import-is-encrypted" disabled>
           <span>This file is encrypted</span>
@@ -354,7 +361,7 @@
       <div class="modal-footer">
         <button class="btn btn-primary" id="btn-import-submit" disabled>
           <i data-lucide="upload" style="width:13px;height:13px;"></i>
-          Import
+          Preview Import
         </button>
         <button class="btn btn-ghost" id="btn-import-cancel">Close</button>
       </div>
@@ -452,11 +459,11 @@
             <span class="privacy-value mono" id="privacy-last-encrypted">No</span>
           </div>
           <div class="privacy-item">
-            <span class="privacy-label">Outbound Requests</span>
+            <span class="privacy-label">Observed API Requests</span>
             <span class="privacy-value mono" id="privacy-outbound-count">0</span>
           </div>
         </div>
-        <p class="form-hint" style="margin-top:12px;">Core flows should remain local-only. If outbound requests are non-zero, review recent changes before deploying.</p>
+        <p class="form-hint" style="margin-top:12px;">This counter observes fetch, XMLHttpRequest, and WebSocket calls made after app startup. It does not cover every possible network request.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" id="btn-privacy-refresh">Refresh</button>
@@ -469,7 +476,14 @@
        TOAST CONTAINER
   ══════════════════════════════════════ -->
   <div id="toast-container" role="log" aria-live="assertive" aria-atomic="false"></div>
+  <div id="undo-snackbar" class="undo-snackbar" role="status" hidden>
+    <span id="undo-message"></span>
+    <button class="btn btn-ghost" id="btn-undo">Undo</button>
+    <span class="undo-timer" aria-hidden="true"></span>
+  </div>
 
+  <!-- Classic loader keeps the checked-in page usable when opened from disk. -->
+  <script src="./file-loader.js"></script>
   <!-- App scripts: single Vite entry module -->
   <script type="module" src="./main.js"></script>
 </body>

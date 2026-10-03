@@ -37,6 +37,7 @@
     const tbody = document.getElementById('salary-body');
     const totalEl = document.getElementById('salary-total');
     const entries = S.get().salary;
+    const disabled = S.isReadOnly() ? 'disabled' : '';
 
     if (!entries.length) {
       tbody.innerHTML = `
@@ -63,6 +64,7 @@
               maxlength="100"
               placeholder="e.g. Acme Corp"
               aria-label="Income source name"
+              ${disabled}
             >
           </td>
           <td data-label="Amount">
@@ -75,10 +77,11 @@
               step="0.01"
               placeholder="0.00"
               aria-label="Income amount"
+              ${disabled}
             >
           </td>
           <td data-label="Frequency">
-            <select class="select-inline" data-field="frequency" aria-label="Pay frequency">
+            <select class="select-inline" data-field="frequency" aria-label="Pay frequency" ${disabled}>
               ${freqOptions(e.frequency)}
             </select>
           </td>
@@ -92,6 +95,7 @@
               data-action="delete-salary"
               data-id="${esc(e.id)}"
               aria-label="Remove income entry"
+              ${disabled}
             >
               <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
             </button>
@@ -111,6 +115,7 @@
     const tbody = document.getElementById('savings-body');
     const totalEl = document.getElementById('savings-total');
     const entries = S.get().savings;
+    const disabled = S.isReadOnly() ? 'disabled' : '';
 
     if (!entries.length) {
       tbody.innerHTML = `
@@ -134,6 +139,7 @@
               maxlength="100"
               placeholder="e.g. Chase Savings"
               aria-label="Savings institution name"
+              ${disabled}
             >
           </td>
           <td data-label="Balance">
@@ -146,6 +152,7 @@
               step="0.01"
               placeholder="0.00"
               aria-label="Balance amount"
+              ${disabled}
             >
           </td>
           <td data-label="">
@@ -154,6 +161,7 @@
               data-action="delete-savings"
               data-id="${esc(e.id)}"
               aria-label="Remove savings entry"
+              ${disabled}
             >
               <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
             </button>
@@ -173,6 +181,7 @@
     const tbody = document.getElementById('budget-body');
     const totalEl = document.getElementById('budget-total');
     const entries = S.get().budget;
+    const disabled = S.isReadOnly() ? 'disabled' : '';
 
     if (!entries.length) {
       tbody.innerHTML = `
@@ -194,14 +203,15 @@
       html += `
         <tr class="${paidCls}" data-id="${esc(b.id)}">
           <td class="col-check no-strike" data-label="Paid" style="text-align:center;">
-            <input
+            <label class="paid-control"><input
               type="checkbox"
               class="paid-check"
               data-action="toggle-paid"
               data-id="${esc(b.id)}"
               ${b.paid ? 'checked' : ''}
               aria-label="Mark ${esc(b.name || 'item')} as fulfilled"
-            >
+              ${disabled}
+            ><svg class="paid-check-visual" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7" /></svg></label>
           </td>
           <td data-label="Item">
             <input
@@ -213,6 +223,7 @@
               placeholder="e.g. Rent, Groceries…"
               aria-label="Budget item name"
               ${isLoan ? 'style="color:var(--text-secondary);"' : ''}
+              ${disabled}
             >
           </td>
           <td data-label="Allocated">
@@ -225,15 +236,19 @@
               step="0.01"
               placeholder="0.00"
               aria-label="Budget amount"
+              ${disabled}
             >
           </td>
-          <td class="col-hide-sm no-strike" data-label="Type">${typeTag}</td>
+          <td class="col-hide-sm no-strike" data-label="Repeat">${typeTag}
+            <label class="repeat-control"><input type="checkbox" data-field="recurring" ${b.recurring || isLoan ? 'checked' : ''} ${isLoan ? 'disabled' : disabled} aria-label="Repeat ${esc(b.name || 'item')} next month"> Monthly</label>
+          </td>
           <td class="no-strike" data-label="">
             <button
               class="btn-icon"
               data-action="delete-budget"
               data-id="${esc(b.id)}"
               aria-label="Remove budget item"
+              ${disabled}
             >
               <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
             </button>
@@ -253,6 +268,8 @@
     const tbody = document.getElementById('loans-body');
     const totalEl = document.getElementById('loans-total');
     const entries = S.get().loans;
+    const disabled = S.isReadOnly() ? 'disabled' : '';
+    const compact = window.matchMedia('(max-width: 639px)').matches;
 
     if (!entries.length) {
       tbody.innerHTML = `
@@ -277,7 +294,7 @@
              <i data-lucide="check" style="width:10px;height:10px;pointer-events:none;"></i>
              In Budget
            </button>`
-        : `<button class="btn-to-budget" data-action="loan-to-budget" data-id="${esc(loan.id)}" aria-label="Add loan payment to budget">
+        : `<button class="btn-to-budget" data-action="loan-to-budget" data-id="${esc(loan.id)}" aria-label="Add loan payment to budget" ${disabled}>
              <i data-lucide="plus" style="width:10px;height:10px;pointer-events:none;"></i>
              To Budget
            </button>`;
@@ -286,7 +303,7 @@
       const remColor = stats.isDone ? 'color:var(--success)' : 'color:var(--text-secondary)';
 
       html += `
-        <tr data-id="${esc(loan.id)}">
+        <tr data-id="${esc(loan.id)}" class="loan-row">
           <td data-label="Lender / Loan">
             <input
               class="input-inline"
@@ -296,9 +313,11 @@
               maxlength="100"
               placeholder="e.g. Car Loan"
               aria-label="Loan name"
+              ${disabled}
             >
+            <button class="loan-details-toggle" data-action="toggle-loan-details" type="button" aria-expanded="false" aria-label="Show loan details"><i data-lucide="chevron-down" style="width:15px;height:15px;pointer-events:none;"></i></button>
           </td>
-          <td class="col-hide-sm" data-label="Total">
+          <td class="col-hide-sm loan-detail" data-label="Total" ${compact ? 'inert' : ''}>
             <input
               class="input-inline mono"
               type="number"
@@ -308,9 +327,10 @@
               step="0.01"
               placeholder="0.00"
               aria-label="Total loan amount"
+              ${disabled}
             >
           </td>
-          <td class="col-hide-sm" data-label="Per Payment">
+          <td class="col-hide-sm loan-detail" data-label="Per Payment" ${compact ? 'inert' : ''}>
             <input
               class="input-inline mono"
               type="number"
@@ -320,9 +340,10 @@
               step="0.01"
               placeholder="0.00"
               aria-label="Payment amount"
+              ${disabled}
             >
           </td>
-          <td class="col-hide-sm" data-label="Months Paid">
+          <td class="col-hide-sm loan-detail" data-label="Months Paid" ${compact ? 'inert' : ''}>
             <input
               class="input-inline mono"
               type="number"
@@ -332,10 +353,11 @@
               step="1"
               placeholder="0"
               aria-label="Months already paid"
+              ${disabled}
             >
           </td>
-          <td class="col-hide-sm" data-label="Frequency">
-            <select class="select-inline" data-field="frequency" aria-label="Payment frequency">
+          <td class="col-hide-sm loan-detail" data-label="Frequency" ${compact ? 'inert' : ''}>
+            <select class="select-inline" data-field="frequency" aria-label="Payment frequency" ${disabled}>
               ${freqOptions(loan.frequency)}
             </select>
           </td>
@@ -367,6 +389,7 @@
                 data-action="delete-loan"
                 data-id="${esc(loan.id)}"
                 aria-label="Remove loan"
+                ${disabled}
               >
                 <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
               </button>
@@ -420,11 +443,50 @@
     setElText('sum-loan-pmts',  fmt(s.loanPayments));
     setElText('sum-deductions', fmt(s.totalDeductions));
     setElText('sum-remaining',  fmt(s.remaining));
+    setElText('sum-paid', fmt(s.paid));
+    setElText('sum-pending', fmt(s.pending));
 
     const remEl = document.getElementById('sum-remaining');
     if (remEl) {
       remEl.className = 'sum-value ' + (s.remaining >= 0 ? 'color-success' : 'color-danger');
     }
+    if (App.persistence) App.persistence.requestSave();
+  }
+
+  function renderMonths() {
+    const tabs = document.getElementById('month-tabs');
+    if (!tabs) return;
+    const monthList = S.listMonths();
+    if (tabs.dataset.months !== monthList.join(',')) {
+      tabs.dataset.months = monthList.join(',');
+      tabs.innerHTML = '<span class="month-indicator" aria-hidden="true"></span>' + monthList.map((month) => `<button class="month-tab" data-month="${esc(month)}">${esc(new Date(month + '-01T12:00:00').toLocaleDateString(undefined, { month: 'short', year: 'numeric' }))}</button>`).join('');
+    }
+    tabs.querySelectorAll('.month-tab').forEach((button) => {
+      const active = button.dataset.month === S.viewedMonth();
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    requestAnimationFrame(() => {
+      const active = tabs.querySelector('.month-tab.active');
+      const indicator = tabs.querySelector('.month-indicator');
+      if (active && indicator) {
+        indicator.style.left = active.offsetLeft + 'px';
+        indicator.style.top = active.offsetTop + 'px';
+        indicator.style.width = active.offsetWidth + 'px';
+        indicator.style.height = active.offsetHeight + 'px';
+      }
+    });
+    const label = document.getElementById('month-mode-label');
+    if (label) label.textContent = S.isReadOnly() ? '· Past month (read only)' : '· Current draft';
+    const savingsHeading = document.getElementById('savings-heading');
+    if (savingsHeading) savingsHeading.textContent = S.isReadOnly() ? 'Savings Snapshot' : 'Current Savings';
+    const loansHeading = document.getElementById('loans-heading');
+    if (loansHeading) loansHeading.textContent = S.isReadOnly() ? 'Loan Snapshot' : 'Active Loans';
+    const currencyNote = document.getElementById('currency-note');
+    if (currencyNote) currencyNote.textContent = `${S.getCurrency().split('|')[0]} budget · changing currency relabels amounts without conversion`;
+    const start = document.getElementById('btn-start-month');
+    if (start) start.hidden = S.currentMonth() <= S.activeMonth();
+    document.querySelectorAll('.card-footer .btn-add').forEach((button) => { button.disabled = S.isReadOnly(); });
   }
 
   function setElText(id, text) {
@@ -436,6 +498,7 @@
      RENDER ALL
   ────────────────────────────────────────────────────── */
   function renderAll() {
+    renderMonths();
     renderSalary();
     renderSavings();
     renderBudget();
@@ -453,6 +516,7 @@
     loans:   renderLoans,
     summary: renderSummary,
     all:     renderAll,
+    months:  renderMonths,
     icons:   refreshIcons,
   };
 })();

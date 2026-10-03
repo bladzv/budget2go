@@ -81,7 +81,6 @@
       const l = String(locale || 'en-PH').slice(0, 20);
       _currencyFormatter = new Intl.NumberFormat(l, {
         style: 'currency', currency: c,
-        minimumFractionDigits: 2, maximumFractionDigits: 2,
       });
       _currencyCode   = c;
       _currencyLocale = l;

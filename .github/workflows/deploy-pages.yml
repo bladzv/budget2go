@@ -30,14 +30,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check dependency advisories
+        run: npm audit --audit-level=high
+
       - name: Install Playwright browser
         run: npm run test:install
 
+      - name: Build production and direct-file bundles
+        run: npm run build
+
+      - name: Check direct-file bundle is current
+        run: git diff --exit-code -- standalone.js
+
       - name: Run Playwright tests
         run: npm run test
-
-      - name: Build production bundle
-        run: npm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

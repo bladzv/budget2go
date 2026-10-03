@@ -24,9 +24,12 @@ It supports JSON/CSV import and export, password-protected encrypted `.bgo` file
 
 ## Features
 - Realtime totals and summary stats while editing fields
+- Versioned monthly plans, local autosave, and read-only history
+- New-month rollover that copies income, recurring expenses, and linked loan payments
+- Paid loan budget items record dated payments and update loan progress; recent actions can be undone
 - Loan tracking with `Months Paid` support and progress calculations
 - Budget item paid state for visual tracking of completed expenses
-- Currency selector with common presets: PHP, USD, EUR, GBP, JPY, SGD
+- Single budget currency with common presets: PHP, USD, EUR, GBP, JPY, SGD. Switching the label never converts amounts.
 - Light/dark theme toggle with saved preference
 - Privacy dashboard with local storage/cache/export/network visibility
 - One-click local data wipe (state, preferences, and offline caches)
@@ -39,6 +42,7 @@ It supports JSON/CSV import and export, password-protected encrypted `.bgo` file
 - Import options:
   - JSON / CSV
   - Encrypted `.bgo` with password
+  - Preview and explicit confirmation before replacing the local draft
 - Responsive layout:
   - Desktop: card-based dashboard
   - Mobile: stacked card rows for each table
@@ -54,6 +58,11 @@ It supports JSON/CSV import and export, password-protected encrypted `.bgo` file
 - Web Crypto API for encryption and decryption
 
 ## Getting Started
+On macOS, you can also open `index.html` directly in Brave. The repository
+includes a standalone browser bundle for this case; `npm run build` refreshes it
+after source changes. A local `file://` page cannot install the offline PWA, so
+use the dev server or deployed site for that feature.
+
 ### 1. Install dependencies
 ```bash
 npm install
@@ -129,7 +138,7 @@ budget2go/
 │   └── budget.spec.js
 ├── ui.js
 ├── utils.js
-├── vite.config.js
+├── vite.config.mjs
 ├── package.json
 ├── package-lock.json
 └── LICENSE
@@ -141,12 +150,21 @@ budget2go/
   - PBKDF2-SHA256 with a per-file random salt and a high iteration count
   - A per-file random IV
 - Exported CSV values are hardened against formula injection.
-- The app uses a restrictive Content Security Policy for static hosting.
+- The app uses a meta Content Security Policy for supported directives. GitHub Pages does not supply project-specific response headers here, so this policy does not provide framing protection.
 - Use strong passwords for encrypted exports.
+- The autosaved draft is plain data in this browser's local storage. Anyone with access to this browser profile can read it; use encrypted exports for portable backups.
+- Import limits are 5 MB, 120 months, 2,000 entries per category per month, and 5,000 payments per loan.
+
+## Monthly Workflow
+
+The latest month is editable. Earlier months remain available as read-only snapshots. When the calendar advances, **Start New Month** copies income, recurring budget items, and linked loan items into the new month with paid states reset. Savings and loans carry forward. Mark a linked loan budget item paid to record a payment; **Undo** reverses that action for six seconds.
+
+The app saves edits locally and shows the save state in the header. JSON and CSV exports include all months; CSV also includes spreadsheet-friendly tables for the latest viewed month. Importing either format previews its contents before replacing the current draft. A storage failure is shown in the header; export a backup if that happens.
 
 ## Privacy Disclaimer
 - Budget2Go is a static client-side web application.
 - Import and export processing happens locally in your browser.
+- Local drafts are stored unencrypted in this browser profile until wiped.
 - The app does not upload your files or financial data to a backend server.
 - Core app flows are designed to run without third-party network requests.
 

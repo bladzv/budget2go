@@ -14,6 +14,35 @@
     var S = App.state;
     var R = App.render;
     var UI = App.ui;
+    function editable() { return !S.isReadOnly(); }
+    function deleteWithUndo(kind, id, action, message) {
+      if (!editable()) return;
+      const undoMonth = S.activeMonth();
+      const current = S.get();
+      const index = current[kind].findIndex((item) => item.id === id);
+      if (index < 0) return;
+      const item = structuredClone(current[kind][index]);
+      const linkedBudget = kind === 'loans' && item.budgetEntryId
+        ? current.budget.find((entry) => entry.id === item.budgetEntryId) : null;
+      const linkedIndex = linkedBudget ? current.budget.indexOf(linkedBudget) : -1;
+      const savedLinked = linkedBudget ? structuredClone(linkedBudget) : null;
+      action();
+      R.all();
+      UI.showUndo(message, () => {
+        if (S.activeMonth() !== undoMonth || S.isReadOnly()) return;
+        const target = S.get();
+        if (target[kind].some((entry) => entry.id === id)) return;
+        target[kind].splice(index, 0, item);
+        if (savedLinked && !target.budget.some((entry) => entry.id === savedLinked.id)) {
+          target.budget.splice(linkedIndex, 0, savedLinked);
+        }
+        if (kind === 'budget' && item.loanId) {
+          const loan = target.loans.find((entry) => entry.id === item.loanId);
+          if (loan) loan.budgetEntryId = item.id;
+        }
+        R.all();
+      });
+    }
 
     /* ──────────────────────────────────────────────────────
        HELPER: delegate to a table body
@@ -135,6 +164,7 @@
     ────────────────────────────────────────────────────── */
     delegate('salary-body', {
     input: function (e) {
+      if (!editable()) return;
       var field = e.target.dataset.field;
       if (field === 'source' || field === 'amount') {
         S.updateSalaryField(rowId(e.target), field, e.target.value);
@@ -145,6 +175,7 @@
       }
     },
     change: function (e) {
+      if (!editable()) return;
       var field = e.target.dataset.field;
       if (field === 'frequency') {
         S.updateSalaryField(rowId(e.target), field, e.target.value);
@@ -155,9 +186,7 @@
     click: function (e) {
       var btn = e.target.closest('[data-action="delete-salary"]');
       if (btn) {
-        S.deleteSalary(btn.dataset.id);
-        R.salary();
-        R.summary();
+        deleteWithUndo('salary', btn.dataset.id, () => S.deleteSalary(btn.dataset.id), 'Income entry removed.');
       }
     },
   });
@@ -167,6 +196,7 @@
   ────────────────────────────────────────────────────── */
   delegate('savings-body', {
     input: function (e) {
+      if (!editable()) return;
       var field = e.target.dataset.field;
       if (field === 'location' || field === 'amount') {
         S.updateSavingsField(rowId(e.target), field, e.target.value);
@@ -178,9 +208,7 @@
     click: function (e) {
       var btn = e.target.closest('[data-action="delete-savings"]');
       if (btn) {
-        S.deleteSavings(btn.dataset.id);
-        R.savings();
-        R.summary();
+        deleteWithUndo('savings', btn.dataset.id, () => S.deleteSavings(btn.dataset.id), 'Savings entry removed.');
       }
     },
   });
@@ -189,22 +217,51 @@
      BUDGET TABLE
   ────────────────────────────────────────────────────── */
   function handleSetPaid(id, checked) {
-    S.setBudgetPaid(id, checked);
-    R.budget();
-    R.summary();
+    if (!editable()) return;
+    const undoMonth = S.activeMonth();
+    const before = S.get().budget.find((item) => item.id === id);
+    const prior = before ? structuredClone(before) : null;
+    const loan = before && before.loanId ? S.get().loans.find((item) => item.id === before.loanId) : null;
+    const priorPayment = loan && prior.lastPaymentId ? loan.payments.find((entry) => entry.id === prior.lastPaymentId) : null;
+    const result = S.setBudgetPaid(id, checked);
+    if (!result) return;
+    R.all();
+    UI.showUndo(result.paymentId ? 'Loan payment recorded.' : 'Paid state updated.', () => {
+      if (S.activeMonth() !== undoMonth || S.isReadOnly()) return;
+      const current = S.get().budget.find((item) => item.id === id);
+      if (!current || current.paid !== checked) return;
+      if (checked) S.setBudgetPaid(id, false);
+      else {
+        current.paid = true;
+        current.lastPaymentId = prior.lastPaymentId;
+        const currentLoan = current.loanId ? S.get().loans.find((item) => item.id === current.loanId) : null;
+        if (currentLoan && priorPayment && !currentLoan.payments.some((item) => item.id === priorPayment.id)) {
+          currentLoan.payments.push(structuredClone(priorPayment));
+        }
+      }
+      R.all();
+    });
   }
 
   delegate('budget-body', {
     input: function (e) {
+      if (!editable()) return;
       var field = e.target.dataset.field;
       if (field === 'name' || field === 'amount') {
         S.updateBudgetField(rowId(e.target), field, e.target.value);
         var tot = document.getElementById('budget-total');
         if (tot) tot.textContent = App.utils.fmt(S.budgetTotal());
+        if (field === 'amount') R.loans();
         R.summary();
       }
     },
     change: function (e) {
+      if (!editable()) return;
+      if (e.target.dataset.field === 'recurring') {
+        S.updateBudgetField(rowId(e.target), 'recurring', e.target.checked);
+        R.summary();
+        return;
+      }
       var checkEl = e.target.closest('[data-action="toggle-paid"]');
       if (checkEl) {
         handleSetPaid(checkEl.dataset.id, !!checkEl.checked);
@@ -213,9 +270,7 @@
     click: function (e) {
       var delBtn = e.target.closest('[data-action="delete-budget"]');
       if (delBtn) {
-        S.deleteBudget(delBtn.dataset.id);
-        R.budget();
-        R.summary();
+        deleteWithUndo('budget', delBtn.dataset.id, () => S.deleteBudget(delBtn.dataset.id), 'Budget item removed.');
       }
     },
   });
@@ -227,6 +282,7 @@
   ────────────────────────────────────────────────────── */
   delegate('loans-body', {
     input: function (e) {
+      if (!editable()) return;
       var field = e.target.dataset.field;
       if (field === 'name' || field === 'total' || field === 'paymentAmount' || field === 'monthsPaid') {
         S.updateLoanField(rowId(e.target), field, e.target.value);
@@ -239,6 +295,7 @@
       }
     },
     change: function (e) {
+      if (!editable()) return;
       var field = e.target.dataset.field;
       if (field === 'frequency') {
         S.updateLoanField(rowId(e.target), field, e.target.value);
@@ -247,8 +304,18 @@
       }
     },
     click: function (e) {
+      var details = e.target.closest('[data-action="toggle-loan-details"]');
+      if (details) {
+        var row = details.closest('tr[data-id]');
+        var open = row.classList.toggle('details-open');
+        row.querySelectorAll('.loan-detail').forEach((cell) => { cell.inert = !open; });
+        details.setAttribute('aria-expanded', String(open));
+        details.setAttribute('aria-label', open ? 'Hide loan details' : 'Show loan details');
+        return;
+      }
       var toBudget = e.target.closest('[data-action="loan-to-budget"]');
       if (toBudget) {
+        if (!editable()) return;
         var added = S.addLoanToBudget(toBudget.dataset.id);
         if (added) {
           R.all();
@@ -258,8 +325,7 @@
       }
       var delBtn = e.target.closest('[data-action="delete-loan"]');
       if (delBtn) {
-        S.deleteLoan(delBtn.dataset.id);
-        R.all();
+        deleteWithUndo('loans', delBtn.dataset.id, () => S.deleteLoan(delBtn.dataset.id), 'Loan removed.');
       }
     },
   });
@@ -271,19 +337,18 @@
     var btn = document.getElementById(btnId);
     if (!btn) return;
     btn.addEventListener('click', function () {
+      if (!editable()) return;
       mutation();
       renderFn();
       R.summary();
-      setTimeout(function () {
-        var tbody = document.getElementById(tbodyId);
-        if (tbody) {
-          var lastRow = tbody.querySelector('tr[data-id]:last-child');
-          if (lastRow) {
-            var firstInput = lastRow.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }
+      var tbody = document.getElementById(tbodyId);
+      if (tbody) {
+        var lastRow = tbody.querySelector('tr[data-id]:last-child');
+        if (lastRow) {
+          var firstInput = lastRow.querySelector('input:not([type="checkbox"])');
+          if (firstInput) firstInput.focus();
         }
-      }, 50);
+      }
     });
   }
 
@@ -291,6 +356,24 @@
   bindAdd('btn-add-savings', 'savings-body', S.addSavings,        R.savings);
   bindAdd('btn-add-budget',  'budget-body',  function () { S.addBudget(); }, R.budget);
   bindAdd('btn-add-loan',    'loans-body',   S.addLoan,           R.loans);
+
+  const monthTabs = document.getElementById('month-tabs');
+  if (monthTabs) monthTabs.addEventListener('click', (e) => {
+    const button = e.target.closest('[data-month]');
+    if (button && S.viewMonth(button.dataset.month)) R.all();
+  });
+  const startMonth = document.getElementById('btn-start-month');
+  if (startMonth) startMonth.addEventListener('click', () => {
+    if (S.rollover()) {
+      R.all();
+      UI.toast('New month started. Recurring items copied and paid states reset.', 'success');
+    }
+  });
+  const summaryToggle = document.getElementById('btn-summary-toggle');
+  if (summaryToggle) summaryToggle.addEventListener('click', () => {
+    const expanded = document.querySelector('.summary-bar').classList.toggle('expanded');
+    summaryToggle.setAttribute('aria-expanded', String(expanded));
+  });
 
   var importBtn = document.getElementById('btn-toggle-import');
   if (importBtn) importBtn.addEventListener('click', UI.openImportModal);
@@ -335,11 +418,19 @@
   var btnJson = document.getElementById('btn-export-json');
   if (btnJson) {
     btnJson.addEventListener('click', async function () {
+      btnJson.disabled = true;
+      const label = document.getElementById('export-json-label');
+      const old = label.textContent;
+      label.textContent = 'Preparing…';
       try {
         await App.io.exportJSON(UI.getModalFilename(), UI.getExportOptions());
+        label.textContent = 'Download started';
         UI.closeModal();
       } catch (err) {
         UI.toast((err && err.message) ? err.message : 'Export failed.', 'error');
+      } finally {
+        btnJson.disabled = false;
+        label.textContent = old;
       }
     });
   }
@@ -347,11 +438,19 @@
   var btnCsv = document.getElementById('btn-export-csv');
   if (btnCsv) {
     btnCsv.addEventListener('click', async function () {
+      btnCsv.disabled = true;
+      const label = document.getElementById('export-csv-label');
+      const old = label.textContent;
+      label.textContent = 'Preparing…';
       try {
         await App.io.exportCSV(UI.getModalFilename(), UI.getExportOptions());
+        label.textContent = 'Download started';
         UI.closeModal();
       } catch (err) {
         UI.toast((err && err.message) ? err.message : 'Export failed.', 'error');
+      } finally {
+        btnCsv.disabled = false;
+        label.textContent = old;
       }
     });
   }
@@ -396,9 +495,24 @@
       var val = this.value;
       var parts = val.split('|');
       if (parts.length === 2) {
+        const previous = S.getCurrency();
+        const hasAmounts = S.listMonths().some((month) => {
+          const original = S.viewedMonth();
+          S.viewMonth(month);
+          const st = S.get();
+          const any = st.salary.length || st.savings.length || st.budget.length || st.loans.length;
+          S.viewMonth(original);
+          return any;
+        });
+        if (hasAmounts && !window.confirm('Changing currency only changes labels; amounts are not converted. Continue?')) {
+          this.value = previous;
+          return;
+        }
+        S.setCurrency(val);
         App.utils.setCurrency(parts[0], parts[1]);
         try { localStorage.setItem('b2g-currency', val); } catch (_) {}
         R.all();
+        App.persistence.flush();
       }
     });
   }

@@ -16,8 +16,10 @@
     var themeIcon = document.querySelector('#btn-theme-toggle i[data-lucide]');
     if (themeIcon) themeIcon.setAttribute('data-lucide', savedTheme === 'light' ? 'moon' : 'sun');
 
-    var savedCurrency = 'PHP|en-PH';
-    try { savedCurrency = localStorage.getItem('b2g-currency') || 'PHP|en-PH'; } catch (_) {}
+    var restored = App.persistence.restore();
+    var savedCurrency = restored ? App.state.getCurrency() : 'PHP|en-PH';
+    try { if (!restored) savedCurrency = localStorage.getItem('b2g-currency') || 'PHP|en-PH'; } catch (_) {}
+    App.state.setCurrency(savedCurrency);
     var cparts = savedCurrency.split('|');
     if (cparts.length === 2 && App.utils && App.utils.setCurrency) {
       App.utils.setCurrency(cparts[0], cparts[1]);
@@ -28,6 +30,7 @@
     // 1. Wire up the drop zone for file import
     App.ui.initDropZone();
     App.ui.initCalculator();
+    App.ui.initUndo();
 
     // 2. Initial render (empty state)
     App.render.all();
@@ -45,7 +48,9 @@
     }
 
     // 5. Brief welcome notification
-    App.ui.toast('BudgetOS loaded — start adding entries or import a file.', 'info');
+    if (App.state.currentMonth() > App.state.activeMonth()) {
+      App.ui.toast('A new month is available. Use Start New Month when you are ready.', 'info');
+    }
   }
 
   // Wait for full DOM before initialising

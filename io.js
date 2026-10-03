@@ -166,19 +166,19 @@
 
   function exportJSON(rawFilename, options) {
     const opts = normalizeExportOptions(options);
-    const data = JSON.stringify(S.getExport(), null, 2);
+    const data = JSON.stringify(S.getDocument(), null, 2);
     if (opts.encrypt) {
       return encryptPayload(data, opts.password, 'json').then((encrypted) => {
         const filename = resolveFilename(rawFilename, '.bgo');
         triggerDownload(encrypted, filename, 'application/json;charset=utf-8;');
         recordExportMeta(filename, true);
-        App.ui.toast('Encrypted export saved as ' + filename, 'success');
+        App.ui.toast('Encrypted download started: ' + filename, 'success');
       });
     }
     const filename = resolveFilename(rawFilename, '.json');
     triggerDownload(data, filename, 'application/json;charset=utf-8;');
     recordExportMeta(filename, false);
-    App.ui.toast('Exported as ' + filename, 'success');
+    App.ui.toast('Download started: ' + filename, 'success');
     return Promise.resolve();
   }
 
@@ -206,6 +206,13 @@
     const st = S.getExport();
     const lines = [];
 
+    // A compact, quoted document row preserves all months and metadata. The
+    // following legacy tables keep the active view easy to open in a sheet.
+    lines.push('## DOCUMENT_JSON');
+    lines.push('json');
+    lines.push(csvRow([JSON.stringify(S.getDocument())]));
+    lines.push('');
+
     // ── SALARY ──
     lines.push('## SALARY');
     lines.push(csvRow(['id', 'source', 'amount', 'frequency']));
@@ -220,9 +227,9 @@
 
     // ── BUDGET ──
     lines.push('## BUDGET');
-    lines.push(csvRow(['id', 'name', 'amount', 'paid', 'loanId', 'lastPaymentId']));
+    lines.push(csvRow(['id', 'name', 'amount', 'paid', 'loanId', 'lastPaymentId', 'recurring']));
     st.budget.forEach((b) =>
-      lines.push(csvRow([b.id, b.name, b.amount, b.paid, b.loanId || '', b.lastPaymentId || '']))
+      lines.push(csvRow([b.id, b.name, b.amount, b.paid, b.loanId || '', b.lastPaymentId || '', !!b.recurring]))
     );
     lines.push('');
 
@@ -252,20 +259,20 @@
         const filename = resolveFilename(rawFilename, '.bgo');
         triggerDownload(encrypted, filename, 'application/json;charset=utf-8;');
         recordExportMeta(filename, true);
-        App.ui.toast('Encrypted export saved as ' + filename, 'success');
+        App.ui.toast('Encrypted download started: ' + filename, 'success');
       });
     }
     const filename = resolveFilename(rawFilename, '.csv');
     triggerDownload(csv, filename, 'text/csv;charset=utf-8;');
     recordExportMeta(filename, false);
-    App.ui.toast('Exported as ' + filename, 'success');
+    App.ui.toast('Download started: ' + filename, 'success');
     return Promise.resolve();
   }
 
   /* ──────────────────────────────────────────────────────
      IMPORT: PROCESS FILE
   ────────────────────────────────────────────────────── */
-  function processFile(file, onDone, options) {
+  async function processFile(file, onDone, options) {
     if (!file) return;
     const opts = options || {};
     const isEncrypted = !!opts.encrypted;
@@ -274,51 +281,67 @@
     // Extension validation (defence against spoofed MIME)
     const ext = (file.name || '').split('.').pop().toLowerCase();
     if (ext !== 'json' && ext !== 'csv' && ext !== 'bgo') {
-      App.ui.toast('Invalid file type. Please upload a .json, .csv, or .bgo file.', 'error');
-      return;
+      throw new Error('Invalid file type. Choose a .json, .csv, or .bgo file.');
     }
 
     // File size guard: max 5 MB
     if (file.size > 5 * 1024 * 1024) {
-      App.ui.toast('File too large. Maximum size is 5 MB.', 'error');
-      return;
+      throw new Error('File too large. Maximum size is 5 MB.');
     }
-
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const text = e.target.result;
-      (async function () {
-        try {
-          const treatAsEncrypted = isEncrypted || ext === 'bgo';
-          if (treatAsEncrypted) {
-            const dec = await decryptEnvelope(text, password);
-            if (dec.dataType === 'json') {
-              importJSON(dec.plainText);
-            } else if (dec.dataType === 'csv') {
-              importCSV(dec.plainText);
-            } else {
-              throw new Error('Unsupported encrypted payload type.');
-            }
-          } else if (ext === 'json') {
-            importJSON(text);
-          } else {
-            importCSV(text);
-          }
-          if (typeof onDone === 'function') onDone();
-        } catch (err) {
-          App.ui.toast('Import failed: ' + safeStr(err.message, 120), 'error');
-        }
-      })();
+    const text = await file.text();
+    const treatAsEncrypted = isEncrypted || ext === 'bgo';
+    const decoded = treatAsEncrypted ? await decryptEnvelope(text, password) : {
+      dataType: ext, plainText: text,
     };
-    reader.onerror = function () {
-      App.ui.toast('Could not read the file.', 'error');
-    };
-    reader.readAsText(file, 'UTF-8');
+    const doc = decoded.dataType === 'json' ? importJSON(decoded.plainText) :
+      decoded.dataType === 'csv' ? importCSV(decoded.plainText) : null;
+    if (!doc) throw new Error('Unsupported payload type.');
+    if (typeof onDone === 'function') onDone(doc);
+    return doc;
   }
 
   /* ──────────────────────────────────────────────────────
      IMPORT: JSON
   ────────────────────────────────────────────────────── */
+  function sanitizeState(data) {
+    if (!data || typeof data !== 'object') throw new Error('Invalid month data.');
+    for (const key of ['salary', 'savings', 'budget', 'loans']) {
+      if (!Array.isArray(data[key])) throw new Error('"' + key + '" must be an array.');
+      if (data[key].length > 2000) throw new Error('Too many ' + key + ' entries.');
+    }
+    const obj = (value) => value && typeof value === 'object' ? value : {};
+    const newState = {
+      salary: data.salary.map((raw) => { const s = obj(raw); return {
+        id: safeStr(s.id || uid(), 50), source: safeStr(s.source, 100),
+        amount: safeNum(s.amount), frequency: S.VALID_FREQS.has(s.frequency) ? s.frequency : 'monthly',
+      }; }),
+      savings: data.savings.map((raw) => { const s = obj(raw); return {
+        id: safeStr(s.id || uid(), 50), location: safeStr(s.location, 100), amount: safeNum(s.amount),
+      }; }),
+      budget: data.budget.map((raw) => { const b = obj(raw); return {
+        id: safeStr(b.id || uid(), 50), name: safeStr(b.name, 100), amount: safeNum(b.amount),
+        paid: !!b.paid, loanId: b.loanId ? safeStr(b.loanId, 50) : null,
+        lastPaymentId: b.lastPaymentId ? safeStr(b.lastPaymentId, 50) : null,
+        recurring: !!b.recurring || !!b.loanId,
+      }; }),
+      loans: data.loans.map((raw) => { const l = obj(raw); return {
+        id: safeStr(l.id || uid(), 50), name: safeStr(l.name, 100), total: safeNum(l.total),
+        frequency: S.VALID_FREQS.has(l.frequency) ? l.frequency : 'monthly',
+        paymentAmount: safeNum(l.paymentAmount), monthsPaid: Math.max(0, Math.floor(safeNum(l.monthsPaid))),
+        budgetEntryId: l.budgetEntryId ? safeStr(l.budgetEntryId, 50) : null,
+        payments: Array.isArray(l.payments) ? l.payments.slice(0, 5000).map((rawPayment) => {
+          const p = obj(rawPayment);
+          return { id: safeStr(p.id || uid(), 50), date: safeStr(p.date, 30), amount: safeNum(p.amount) };
+        }) : [],
+      }; }),
+    };
+    if (data.loans.some((l) => Array.isArray(l && l.payments) && l.payments.length > 5000)) {
+      throw new Error('Too many loan payments.');
+    }
+    enforceReferentialIntegrity(newState);
+    return newState;
+  }
+
   function importJSON(text) {
     let data;
     try {
@@ -330,55 +353,22 @@
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new Error('JSON root must be an object.');
     }
-    if (!Array.isArray(data.salary))  throw new Error('"salary" must be an array.');
-    if (!Array.isArray(data.savings)) throw new Error('"savings" must be an array.');
-    if (!Array.isArray(data.budget))  throw new Error('"budget" must be an array.');
-    if (!Array.isArray(data.loans))   throw new Error('"loans" must be an array.');
-
-    // Sanitize and rebuild every field — never trust raw imported data
-    const newState = {
-      salary: data.salary.map((s) => ({
-        id:        safeStr(s.id || uid(), 50),
-        source:    safeStr(s.source, 100),
-        amount:    safeNum(s.amount),
-        frequency: S.VALID_FREQS.has(s.frequency) ? s.frequency : 'monthly',
-      })),
-      savings: data.savings.map((s) => ({
-        id:       safeStr(s.id || uid(), 50),
-        location: safeStr(s.location, 100),
-        amount:   safeNum(s.amount),
-      })),
-      budget: data.budget.map((b) => ({
-        id:            safeStr(b.id || uid(), 50),
-        name:          safeStr(b.name, 100),
-        amount:        safeNum(b.amount),
-        paid:          !!b.paid,
-        loanId:        b.loanId        ? safeStr(b.loanId,        50) : null,
-        lastPaymentId: b.lastPaymentId ? safeStr(b.lastPaymentId, 50) : null,
-      })),
-      loans: data.loans.map((l) => ({
-        id:            safeStr(l.id || uid(), 50),
-        name:          safeStr(l.name, 100),
-        total:         safeNum(l.total),
-        frequency:     S.VALID_FREQS.has(l.frequency) ? l.frequency : 'monthly',
-        paymentAmount: safeNum(l.paymentAmount),
-        monthsPaid:    Math.max(0, Math.floor(safeNum(l.monthsPaid))),
-        budgetEntryId: l.budgetEntryId ? safeStr(l.budgetEntryId, 50) : null,
-        payments: Array.isArray(l.payments)
-          ? l.payments.map((p) => ({
-              id:     safeStr(p.id || uid(), 50),
-              date:   safeStr(p.date, 30),
-              amount: safeNum(p.amount),
-            }))
-          : [],
-      })),
-    };
-
-    enforceReferentialIntegrity(newState);
-    S.set(newState);
-
-    const counts = `${newState.salary.length} income · ${newState.savings.length} savings · ${newState.budget.length} budget · ${newState.loans.length} loans`;
-    App.ui.toast('Imported successfully — ' + counts, 'success');
+    if (data.version === 2) {
+      if (!data.months || typeof data.months !== 'object' || Array.isArray(data.months) ||
+          Object.keys(data.months).length > 120 || !data.months[data.activeMonth]) {
+        throw new Error('Invalid monthly document.');
+      }
+      const months = {};
+      for (const [key, value] of Object.entries(data.months)) {
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) throw new Error('Invalid month key.');
+        months[key] = sanitizeState(value);
+      }
+      const allowed = new Set(['PHP|en-PH', 'USD|en-US', 'EUR|de-DE', 'GBP|en-GB', 'JPY|ja-JP', 'SGD|en-SG']);
+      return { version: 2, activeMonth: data.activeMonth,
+        currency: allowed.has(data.currency) ? data.currency : 'PHP|en-PH', months };
+    }
+    return { version: 2, activeMonth: S.currentMonth(), currency: S.getCurrency(),
+      months: { [S.currentMonth()]: sanitizeState(data) } };
   }
 
   /* ──────────────────────────────────────────────────────
@@ -389,6 +379,7 @@
     let section  = null;
 
     const sections = {
+      DOCUMENT_JSON: [],
       SALARY:        [],
       SAVINGS:       [],
       BUDGET:        [],
@@ -419,6 +410,10 @@
         headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? row[i] : ''; });
         return obj;
       });
+    }
+
+    if (sections.DOCUMENT_JSON.length >= 2 && sections.DOCUMENT_JSON[1][0]) {
+      return importJSON(sections.DOCUMENT_JSON[1][0]);
     }
 
     const salaryRows  = sectionObjects('SALARY');
@@ -459,6 +454,7 @@
         paid:          r.paid === 'true' || r.paid === '1',
         loanId:        r.loanid        ? safeStr(r.loanid,        50) : null,
         lastPaymentId: r.lastpaymentid ? safeStr(r.lastpaymentid, 50) : null,
+        recurring:     r.recurring === 'true' || r.recurring === '1' || !!r.loanid,
       })),
       loans: loanRows.map((r) => {
         const lid = safeStr(r.id || uid(), 50);
@@ -475,9 +471,23 @@
       }),
     };
 
-    enforceReferentialIntegrity(newState);
-    S.set(newState);
-    App.ui.toast('CSV imported successfully', 'success');
+    const month = S.currentMonth();
+    return { version: 2, activeMonth: month, currency: S.getCurrency(),
+      months: { [month]: sanitizeState(newState) } };
+  }
+
+  function applyImport(doc) {
+    if (!S.loadDocument(doc)) throw new Error('Could not load imported document.');
+    App.persistence.resume();
+    const currency = S.getCurrency();
+    const parts = currency.split('|');
+    if (parts.length === 2) {
+      App.utils.setCurrency(parts[0], parts[1]);
+      const select = document.getElementById('currency-select');
+      if (select) select.value = currency;
+    }
+    App.render.all();
+    App.persistence.requestSave();
   }
 
   /* ──────────────────────────────────────────────────────
@@ -639,6 +649,7 @@
     exportJSON,
     exportCSV,
     processFile,
+    applyImport,
     defaultFilename,
     resolveFilename,
   };
