@@ -218,7 +218,7 @@
       ['SALARY', 'salary', ['id', 'source', 'amount', 'frequency']],
       ['SAVINGS', 'savings', ['id', 'location', 'amount']],
       ['BUDGET', 'budget', ['id', 'name', 'amount', 'paid', 'loanId', 'lastPaymentId', 'recurring']],
-      ['LOANS', 'loans', ['id', 'name', 'total', 'frequency', 'paymentAmount', 'monthsPaid', 'budgetEntryId']],
+      ['LOANS', 'loans', ['id', 'name', 'total', 'frequency', 'paymentAmount', 'monthsPaid', 'paidPeriods', 'startingCredit', 'budgetEntryId']],
     ];
     for (const [title, kind, fields] of sections) {
       lines.push('## ' + title, csvRow(['month', ...fields]));
@@ -315,6 +315,7 @@
         id: safeStr(l.id || uid(), 50), name: safeStr(l.name, 100), total: safeNum(l.total),
         frequency: S.VALID_FREQS.has(l.frequency) ? l.frequency : 'monthly',
         paymentAmount: safeNum(l.paymentAmount), monthsPaid: Math.max(0, Math.floor(safeNum(l.monthsPaid))),
+        ...S.loanProgress(l),
         budgetEntryId: l.budgetEntryId ? safeStr(l.budgetEntryId, 50) : null,
         payments: Array.isArray(l.payments) ? l.payments.slice(0, 5000).map((rawPayment) => {
           const p = obj(rawPayment);
@@ -454,6 +455,7 @@
           frequency:     S.VALID_FREQS.has(r.frequency) ? r.frequency : 'monthly',
           paymentAmount: safeNum(r.paymentamount),
           monthsPaid:    Math.max(0, Math.floor(safeNum(r.monthspaid))),
+          ...(r.paidperiods != null && r.paidperiods !== '' ? { paidPeriods: Math.max(0, Math.floor(safeNum(r.paidperiods))), startingCredit: safeNum(r.startingcredit) } : {}),
           budgetEntryId: r.budgetentryid ? safeStr(r.budgetentryid, 50) : null,
           payments:      (paymentsByLoan[lid] || []).map((p) => ({ ...p })),
         };

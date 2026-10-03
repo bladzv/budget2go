@@ -47,7 +47,8 @@ async function nextMonth(page) {
 test('checked-in page works directly from disk and retains its draft', async ({ page }) => {
   await page.goto(pathToFileURL(resolve(process.cwd(), 'index.html')).href);
   await page.click('#btn-welcome-start');
-  await expect(page.locator('.brand-icon svg.lucide')).toBeVisible();
+  await expect(page.locator('.brand-icon img')).toBeVisible();
+  await expect.poll(() => page.locator('.brand-icon img').evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
   await expect(page.locator('i[data-lucide]')).toHaveCount(0);
   await add(page, 'salary', {source:'Local file', amount:1234});
   await expect(page.locator('#save-status')).toHaveAttribute('data-state', 'saved');
@@ -199,6 +200,168 @@ test.describe('Budget2Go redesign', () => {
     await expect(page.locator('#save-status')).toHaveAttribute('data-state','saved');
     await page.reload();
     await expect(group.locator('.step-val')).toHaveValue('1');
+  });
+
+  test('budget column positions remain stable across paid, unpaid and empty filters', async ({ page }) => {
+    await page.setViewportSize({width:1293,height:977});
+    await add(page,'budget',{name:'A very long paid item name that should not resize the amount column',amount:12345,recurring:true});
+    await page.locator('#budget-body .paid-check').check();
+    await add(page,'budget',{name:'Short',amount:10});
+    const headers = page.locator('.table-budget th');
+    const geometry = () => headers.evaluateAll(elements => elements.map(el => {
+      const {x,width} = el.getBoundingClientRect();
+      return {x,width};
+    }));
+    const original = await geometry();
+    for (const filter of ['unpaid','paid','all']) {
+      await page.locator(`[data-filter="${filter}"]`).click();
+      expect(await geometry()).toEqual(original);
+      const input = page.locator('#budget-body .amount-input').first();
+      expect((await input.boundingBox()).x).toBeCloseTo(original[2].x + 20);
+    }
+    await page.locator('[data-filter="unpaid"]').click();
+    await page.locator('#budget-body .paid-check').click();
+    await expect(page.locator('#budget-body .empty-row')).toBeVisible();
+    expect(await geometry()).toEqual(original);
+  });
+
+  test('loan cards cap typed and stepped months at the payoff duration and persist the cap', async ({ page }) => {
+    await add(page,'loans',{name:'GGives',total:102600,paymentAmount:5700,monthsPaid:17});
+    const group = page.locator('[data-loan-stepper]');
+    const input = group.locator('.step-val');
+    const increase = group.getByRole('button',{name:'Increase months paid'});
+    await expect(input).toHaveAttribute('max','18');
+    await increase.click();
+    await expect(input).toHaveValue('18');
+    await expect(increase).toBeDisabled();
+    await expect(page.locator('[data-loan-remaining]')).toContainText('0.00');
+    await group.getByRole('button',{name:'Decrease months paid'}).click();
+    await expect(increase).toBeEnabled();
+    await input.fill('999'); await input.press('Tab');
+    await expect(input).toHaveValue('18');
+    await expect(increase).toBeDisabled();
+    expect(await page.evaluate(() => App.state.get().loans[0].paidPeriods)).toBe(18);
+    await expect(page.locator('#save-status')).toHaveAttribute('data-state','saved');
+    await page.reload();
+    await expect(input).toHaveValue('18');
+    await expect(increase).toBeDisabled();
+  });
+
+  test('loan form caps starting months and recalculates the limit when terms change', async ({ page }) => {
+    await navigate(page,'loans'); await page.click('#btn-add-loan');
+    const input = page.locator('#entry-monthsPaid');
+    const increase = page.locator('#entry-fields [data-step="1"]');
+    await expect(input).toHaveAttribute('max','0');
+    await expect(increase).toBeDisabled();
+    await page.fill('#entry-name','New loan');
+    await page.fill('#entry-total','10000');
+    await page.fill('#entry-paymentAmount','3000');
+    await expect(input).toHaveAttribute('max','4');
+    await input.fill('50');
+    await expect(input).toHaveValue('4');
+    await expect(increase).toBeDisabled();
+    await page.fill('#entry-paymentAmount','2000');
+    await expect(input).toHaveAttribute('max','5');
+    await expect(increase).toBeEnabled();
+    await increase.click();
+    await expect(input).toHaveValue('5');
+    await page.selectOption('#entry-frequency','weekly');
+    await expect(input).toHaveAccessibleName('Weeks paid');
+    await expect(input).toHaveAttribute('max','5');
+    await expect(input).toHaveValue('5');
+    await page.fill('#entry-paymentAmount','6000');
+    await expect(input).toHaveAttribute('max','2');
+    await expect(input).toHaveValue('2');
+    await page.click('#entry-submit');
+    await expect(page.locator('[data-loan-stepper] .step-val')).toHaveValue('2');
+    await page.click('#loans-body .loan-actions [data-edit]');
+    await page.selectOption('#entry-frequency','monthly');
+    await page.fill('#entry-paymentAmount','2000');
+    await input.fill('5');
+    await page.fill('#entry-total','2000');
+    await expect(input).toHaveAttribute('max','1');
+    await expect(input).toHaveValue('1');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-loan-stepper] .step-val')).toHaveValue('2');
+    await page.click('#loans-body .loan-actions [data-edit]');
+    await page.fill('#entry-paymentAmount','0');
+    await expect(input).toHaveAttribute('max','0');
+    await expect(input).toHaveValue('0');
+    await expect(increase).toBeDisabled();
+    await page.click('#entry-submit');
+    await expect(page.locator('[data-loan-stepper] .step-val')).toHaveValue('0');
+  });
+
+  test('loan payoff caps count repayment periods and allow a final partial period', async ({ page }) => {
+    for (const [name,total,paymentAmount,frequency,max] of [
+      ['Monthly',102600,5700,'monthly',18],
+      ['Bi-weekly',102600,5700,'bi-weekly',18],
+      ['Weekly',102600,5700,'weekly',18],
+      ['Partial final month',10000,3000,'monthly',4],
+      ['Exact decimal payoff',300.3,100.1,'monthly',3],
+      ['Zero principal',0,100,'monthly',0],
+    ]) {
+      await add(page,'loans',{name,total,paymentAmount,frequency,monthsPaid:999});
+      const card = page.locator('.loan-card').filter({hasText:name}).last();
+      await expect(card.locator('.step-val')).toHaveAttribute('max',String(max));
+      await expect(card.locator('.step-val')).toHaveValue(String(max));
+      await expect(card.locator('[data-step="1"]')).toBeDisabled();
+    }
+  });
+
+  test('loan labels and starting payments follow the repayment frequency', async ({ page }) => {
+    for (const [frequency,label] of [['monthly','Months paid'],['bi-weekly','Biweekly periods paid'],['weekly','Weeks paid']]) {
+      await add(page,'loans',{name:frequency,total:10000,paymentAmount:1000,frequency,monthsPaid:1});
+      const card = page.locator('.loan-card').last();
+      await expect(card.locator('.loan-starting > .entry-subtitle')).toHaveText(label);
+      await expect(card.locator('.step-val')).toHaveAccessibleName(label);
+      await expect(card.locator('[data-loan-remaining]')).toContainText('9,000');
+      await card.getByRole('button',{name:'Increase '+label.toLowerCase()}).click();
+      await expect(card.locator('[data-loan-remaining]')).toContainText('8,000');
+      await card.locator('.loan-actions [data-edit]').click();
+      await expect(page.locator('label[for="entry-monthsPaid"]')).toHaveText(label);
+      await page.selectOption('#entry-frequency',frequency === 'weekly' ? 'bi-weekly' : 'weekly');
+      await expect(page.locator('#entry-monthsPaid')).toHaveAccessibleName(frequency === 'weekly' ? 'Biweekly periods paid' : 'Weeks paid');
+      await page.click('#entry-submit');
+      await expect(card.locator('[data-loan-remaining]')).toContainText('8,000');
+    }
+  });
+
+  test('legacy month-based loan progress retains balances and partial-period credit through backups', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const S = App.state, doc = S.getDocument();
+      doc.months[doc.viewedMonth].loans = ['weekly','bi-weekly'].map((frequency,index) => ({
+        id:'legacy-'+index,name:'Legacy '+frequency,total:10000,frequency,paymentAmount:100,monthsPaid:1,
+        budgetEntryId:null,payments:[{id:'history-'+index,date:'2026-01-01',amount:50}],
+      }));
+      S.loadDocument(doc); App.render.all(); App.ui.goToView('loans');
+      return S.get().loans.map(loan => ({periods:loan.paidPeriods,credit:loan.startingCredit,remaining:S.loanStats(loan).remaining}));
+    });
+    expect(result).toEqual([{periods:4,credit:33.33,remaining:9516.67},{periods:2,credit:16.67,remaining:9733.33}]);
+    await page.locator('.loan-card').first().getByRole('button',{name:'Increase weeks paid'}).click();
+    await expect(page.locator('.loan-card').first().locator('[data-loan-remaining]')).toContainText('9,416.67');
+    await page.locator('.loan-card').first().locator('.loan-actions [data-edit]').click();
+    await expect(page.locator('#entry-fields .form-hint').first()).toContainText('33.33');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#save-status')).toHaveAttribute('data-state','saved');
+    await page.reload();
+    await expect(page.locator('.loan-card').first().locator('.step-val')).toHaveValue('5');
+    const json = await page.evaluate(async () => {
+      const doc = App.state.getDocument();
+      return App.io.processFile(new File([JSON.stringify(doc)],'periods.json',{type:'application/json'}));
+    });
+    const loans = json.months[json.viewedMonth].loans;
+    expect(loans[0]).toMatchObject({paidPeriods:5,startingCredit:33.33,monthsPaid:1});
+    await page.click('#btn-header-import');
+    const [download] = await Promise.all([page.waitForEvent('download'),page.click('#btn-export-csv')]);
+    const csv = await readFile(await download.path(),'utf8');
+    expect(csv).toContain('paidPeriods,startingCredit');
+    const imported = await page.evaluate(async csv => {
+      const tables = csv.slice(csv.indexOf('## SALARY'));
+      const doc = await App.io.processFile(new File([tables],'periods.csv',{type:'text/csv'}));
+      return doc.months[doc.viewedMonth].loans;
+    },csv);
+    expect(imported[0]).toMatchObject({paidPeriods:5,startingCredit:33.33});
   });
 
   test('mobile account and loan cards meet the requested height reductions', async ({ page }) => {

@@ -132,6 +132,47 @@ test.describe('Explicit controls', () => {
 
 test.describe('Export and wipe safeguards', () => {
   test.beforeEach(async ({page})=>{await enterApp(page);});
+  test('timestamped default uses the budget2go prefix and matches the preview after waiting', async ({page}) => {
+    await page.clock.setFixedTime(new Date('2026-10-04T00:06:15+08:00'));
+    await seedDocument(page); await openExport(page);
+    await expect(page.locator('#export-timestamp')).toBeChecked();
+    const preview = await page.locator('#filename-preview').textContent();
+    expect(preview).toMatch(/^budget2go_\d{8}_\d{6}\.json$/);
+    await expect(page.locator('#export-json-target code')).toHaveText(preview);
+    await expect(page.locator('#export-csv-target code')).toHaveText(preview.replace(/\.json$/,'.csv'));
+    await page.clock.setFixedTime(new Date('2026-10-04T00:07:15+08:00'));
+    const result = await downloadDocument(page,'json');
+    expect(result.filename).toBe(preview);
+  });
+  for (const format of ['json','csv']) for (const encrypted of [false,true]) {
+    test(`${encrypted?'encrypted ':'plain '}${format} can export without a timestamp`, async ({page}) => {
+      const before = await seedDocument(page); await openExport(page,false,encrypted);
+      await page.uncheck('#export-timestamp');
+      const filename = 'budget2go.'+(encrypted?'bgo':format);
+      await expect(page.locator('#export-'+format+'-target code')).toHaveText(filename);
+      await expect(page.locator('#filename-preview')).toHaveText(encrypted?'budget2go.bgo':'budget2go.json');
+      const result = await downloadDocument(page,format,encrypted);
+      expect(result.filename).toBe(filename); expect(result.doc).toEqual(before);
+      await openExport(page);
+      await expect(page.locator('#export-timestamp')).not.toBeChecked();
+      await page.check('#export-timestamp');
+      await expect(page.locator('#filename-preview')).toHaveText(/^budget2go_\d{8}_\d{6}\.json$/);
+    });
+  }
+  test('custom filenames override defaults with and without timestamps', async ({page}) => {
+    await seedDocument(page); await openExport(page);
+    await page.fill('#export-filename','my backup');
+    await expect(page.locator('#export-json-target code')).toHaveText('my_backup.json');
+    await page.uncheck('#export-timestamp');
+    await expect(page.locator('#filename-preview')).toHaveText('budget2go.json');
+    await expect(page.locator('#export-json-target code')).toHaveText('my_backup.json');
+    const result = await downloadDocument(page,'json');
+    expect(result.filename).toBe('my_backup.json');
+    await openExport(page);
+    await page.fill('#export-filename','---');
+    await expect(page.locator('#export-json-target code')).toHaveText('budget2go.json');
+    expect((await downloadDocument(page,'json')).filename).toBe('budget2go.json');
+  });
   for(const format of ['json','csv']) for(const encrypted of [false,true]) for(const wipe of [false,true]) {
     test(`${encrypted?'encrypted ':'plain '}${format} ${wipe?'requires confirmation before wiping':'retains records'}`, async ({page}) => {
       const before=await seedDocument(page);

@@ -169,11 +169,12 @@
   /* ──────────────────────────────────────────────────────
      DEFAULT FILENAME
   ────────────────────────────────────────────────────── */
-  function defaultFilename() {
+  function defaultFilename(includeTimestamp = true) {
+    if (!includeTimestamp) return 'budget2go';
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return (
-      'budget_' +
+      'budget2go_' +
       now.getFullYear() +
       pad(now.getMonth() + 1) +
       pad(now.getDate()) +

@@ -6,8 +6,9 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   <title>Budget2Go — Personal Finance Manager</title>
-  <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#F6F8F7" id="meta-theme-color">
+  <link rel="icon" href="./icon.png" type="image/png" sizes="1254x1254">
+  <link rel="apple-touch-icon" href="./icon.png">
+  <meta name="theme-color" content="#F7F8FA" id="meta-theme-color">
 
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -15,7 +16,7 @@
 
   <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="app-header">
-    <a class="brand" href="#overview"><span class="brand-icon"><i data-lucide="wallet"></i></span>Budget2Go</a>
+    <a class="brand" href="#overview"><span class="brand-icon"><img src="./icon.png" alt="" width="36" height="36"></span>Budget2Go</a>
     <button class="btn btn-ghost" id="btn-header-import" data-header-action="import" aria-haspopup="dialog" aria-controls="import-modal"><i data-lucide="upload"></i>Import</button>
   </header>
   <nav class="app-nav" aria-label="Main navigation"><button class="nav-item" data-view="overview" aria-controls="view-overview"><i data-lucide="house"></i><span>Overview</span></button><button class="nav-item" data-view="budget" aria-controls="view-budget"><i data-lucide="receipt"></i><span>Budget</span></button><button class="nav-item" data-view="accounts" aria-controls="view-accounts"><i data-lucide="wallet"></i><span>Accounts</span></button><button class="nav-item" data-view="loans" aria-controls="view-loans"><i data-lucide="credit-card"></i><span>Loans</span></button><button class="nav-item" data-view="settings" aria-controls="view-settings"><i data-lucide="settings"></i><span>Settings</span></button><div class="local-note"><i data-lucide="shield-check"></i>Stored on this device</div></nav>
@@ -210,12 +211,16 @@
           type="text"
           id="export-filename"
           class="form-input mono"
-          placeholder="Leave blank for auto timestamp"
+          placeholder="Leave blank to use the default filename"
           maxlength="100"
           autocomplete="off"
           spellcheck="false"
         >
         <p class="form-hint">Default: <code id="filename-preview"></code> — Special characters are replaced with underscores.</p>
+        <label class="form-check" for="export-timestamp">
+          <input type="checkbox" id="export-timestamp" checked>
+          <span>Include timestamp in default filename</span>
+        </label>
         <label class="form-check" for="export-encrypt" style="margin-top:14px;">
           <input type="checkbox" id="export-encrypt">
           <span>Encrypt export with a password</span>
@@ -246,8 +251,8 @@
           <span id="export-csv-label">Download CSV</span>
         </button>
         <button class="btn btn-ghost" id="btn-modal-cancel">Cancel</button>
-        <p class="form-hint" id="export-json-target" style="width:100%;margin-top:4px;">JSON will save as: <code>budget_*.json</code></p>
-        <p class="form-hint" id="export-csv-target" style="width:100%;margin-top:2px;">CSV will save as: <code>budget_*.csv</code></p>
+        <p class="form-hint" id="export-json-target" style="width:100%;margin-top:4px;">JSON will save as: <code>budget2go_*.json</code></p>
+        <p class="form-hint" id="export-csv-target" style="width:100%;margin-top:2px;">CSV will save as: <code>budget2go_*.csv</code></p>
       </div>
     </div>
   </div>

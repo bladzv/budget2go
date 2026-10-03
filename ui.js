@@ -111,7 +111,7 @@
     const theme = themePreference === 'system' ? (themeMedia.matches ? 'dark' : 'light') : themePreference;
     document.documentElement.dataset.theme = theme;
     document.getElementById('theme-select').value = themePreference;
-    document.getElementById('meta-theme-color').content = theme === 'dark' ? '#111a19' : '#f6f8f7';
+    document.getElementById('meta-theme-color').content = theme === 'dark' ? '#111318' : '#f7f8fa';
     if (persist) { try { localStorage.setItem('b2g-theme', themePreference); } catch (_) {} }
   }
   function navigate(view, focus = true) {
@@ -180,20 +180,48 @@
       if (number != null) e.target.value = App.utils.formatAmount(number);
     }, true);
   }
-  function stepper(value, loanId = null) {
+  function loanProgressLabel(frequency) {
+    return { monthly: 'Months paid', 'bi-weekly': 'Biweekly periods paid', weekly: 'Weeks paid' }[frequency] || 'Months paid';
+  }
+  function stepper(value, loanId = null, max = 0, frequency = 'monthly') {
     const id = loanId ? 'loan-months-' + App.utils.esc(loanId) : 'entry-monthsPaid';
-    return `<div class="stepper" ${loanId ? `data-loan-stepper="${App.utils.esc(loanId)}"` : ''}><button type="button" class="step-btn" data-step="-1" aria-label="Decrease months already paid" ${value <= 0 ? 'disabled' : ''}>−</button><input class="step-val" id="${id}" ${loanId ? '' : 'name="monthsPaid"'} type="number" min="0" max="9007199254740991" step="1" value="${Math.max(0, Math.floor(value || 0))}" aria-label="Months already paid" required><button type="button" class="step-btn" data-step="1" aria-label="Increase months already paid">+</button></div>`;
+    const label = loanProgressLabel(frequency);
+    value = Math.min(max, Math.max(0, Math.floor(value || 0)));
+    return `<div class="stepper" ${loanId ? `data-loan-stepper="${App.utils.esc(loanId)}"` : ''}><button type="button" class="step-btn" data-step="-1" aria-label="Decrease ${label.toLowerCase()}" ${value <= 0 ? 'disabled' : ''}>−</button><input class="step-val" id="${id}" ${loanId ? '' : 'name="paidPeriods"'} type="number" min="0" max="${max}" step="1" value="${value}" aria-label="${label}" required><button type="button" class="step-btn" data-step="1" aria-label="Increase ${label.toLowerCase()}" ${value >= max ? 'disabled' : ''}>+</button></div>`;
+  }
+  function syncStepper(group, max = Number(group.querySelector('.step-val').max)) {
+    const input = group.querySelector('.step-val');
+    input.max = max;
+    if (Number(input.value) > max) input.value = max;
+    group.querySelector('[data-step="-1"]').disabled = Number(input.value) <= 0;
+    group.querySelector('[data-step="1"]').disabled = Number(input.value) >= max;
+  }
+  function syncLoanFormStepper() {
+    if (!entryContext || entryContext.kind !== 'loans') return;
+    const frequency = document.getElementById('entry-frequency').value;
+    const input = document.getElementById('entry-monthsPaid');
+    const group = input.closest('.stepper');
+    const label = loanProgressLabel(frequency);
+    document.querySelector('label[for="entry-monthsPaid"]').textContent = label;
+    input.setAttribute('aria-label', label);
+    group.querySelector('[data-step="-1"]').setAttribute('aria-label', 'Decrease ' + label.toLowerCase());
+    group.querySelector('[data-step="1"]').setAttribute('aria-label', 'Increase ' + label.toLowerCase());
+    const total = App.utils.parseAmount(document.getElementById('entry-total').value);
+    const paymentAmount = App.utils.parseAmount(document.getElementById('entry-paymentAmount').value);
+    if (total == null || paymentAmount == null) return;
+    syncStepper(group, App.state.loanPeriodsLimit({ total, paymentAmount, frequency }));
   }
   function initSteppers() {
-    function commit(group, number, delta = null) {
+    function commit(group, number) {
       const input = group.querySelector('.step-val');
       if (!Number.isSafeInteger(number) || number < 0) return;
+      number = Math.min(number, Number(input.max));
       const id = group.dataset.loanStepper;
       if (id) {
         const loan = App.state.get().loans.find(item => item.id === id);
         if (!loan) return;
-        if (number === loan.monthsPaid) return;
-        App.state.updateLoanField(id, 'monthsPaid', number);
+        if (number === App.state.loanProgress(loan).paidPeriods) { input.value = number; syncStepper(group); return; }
+        App.state.updateLoanField(id, 'paidPeriods', number);
         input.value = number;
         const card = group.closest('.loan-card');
         const stats = App.state.loanStats(loan);
@@ -205,7 +233,7 @@
         App.render.summary();
       } else input.value = number;
       const value = group.querySelector('.step-val');
-      group.querySelector('[data-step="-1"]').disabled = number <= 0;
+      syncStepper(group);
       value.classList.remove('bump');
       void value.offsetWidth;
       value.classList.add('bump');
@@ -218,15 +246,20 @@
       const input = group.querySelector('.step-val');
       const n = Number(input.value);
       if (!input.checkValidity()) { input.reportValidity(); return; }
-      commit(group, Math.max(0, n + Number(button.dataset.step)), Number(button.dataset.step));
+      commit(group, Math.max(0, n + Number(button.dataset.step)));
+    });
+    document.addEventListener('input', e => {
+      if (e.target.matches('#entry-total, #entry-paymentAmount')) syncLoanFormStepper();
+      if (e.target.matches('.step-val')) syncStepper(e.target.closest('.stepper'));
     });
     document.addEventListener('change', e => {
+      if (e.target.matches('#entry-frequency, #entry-total, #entry-paymentAmount')) syncLoanFormStepper();
       if (!e.target.matches('.step-val')) return;
       const group = e.target.closest('.stepper');
       const n = Number(e.target.value);
       if (!e.target.checkValidity() || !Number.isSafeInteger(n)) {
         const loan = group.dataset.loanStepper && App.state.get().loans.find(item => item.id === group.dataset.loanStepper);
-        if (loan) e.target.value = loan.monthsPaid;
+        if (loan) { e.target.value = App.state.loanProgress(loan).paidPeriods; syncStepper(group); }
         else e.target.reportValidity();
         return;
       }
@@ -328,8 +361,9 @@
       html += field('total', 'Total loan amount', record.total || 0, 'number', 'required');
       html += field('paymentAmount', 'Amount per payment', record.paymentAmount || 0, 'number', 'required');
       html += frequency(record.frequency || 'monthly');
-      html += '<label class="form-label" for="entry-monthsPaid">Months already paid</label>' + stepper(record.monthsPaid || 0);
-      html += '<p class="form-hint">This starting progress is added to recorded payments. It is calculated using the monthly equivalent of your payment.</p>';
+      const starting = S.loanProgress(record);
+      html += `<label class="form-label" for="entry-monthsPaid">${loanProgressLabel(record.frequency)}</label>` + stepper(starting.paidPeriods, null, S.loanPeriodsLimit(record), record.frequency);
+      html += `<p class="form-hint">This starting progress is added to recorded payments.${starting.startingCredit > 0 ? ' Includes ' + App.utils.esc(App.utils.fmt(starting.startingCredit)) + ' in prior partial-period credit.' : ''}</p>`;
       html += '<section class="entry-history"><h3>Payment history</h3><div id="entry-history-list"></div><button class="btn btn-ghost" id="history-more" type="button" hidden>Show more payments</button></section>';
     } else {
       html += field('amount', kind === 'savings' ? 'Balance' : kind === 'salary' ? 'Amount per pay period' : 'Allocated amount', record.amount || 0, 'number', 'required');
@@ -462,6 +496,8 @@
   const exportModalEl     = () => document.getElementById('export-modal');
   const filenameEl        = () => document.getElementById('export-filename');
   const previewEl         = () => document.getElementById('filename-preview');
+  const exportTimestampEl = () => document.getElementById('export-timestamp');
+  let exportTimestampFilename = '';
   const exportEncryptEl   = () => document.getElementById('export-encrypt');
   const exportPwdWrapEl   = () => document.getElementById('export-password-wrap');
   const exportPwdEl       = () => document.getElementById('export-password');
@@ -501,7 +537,7 @@
     if (csvBtn && csvLabel) csvLabel.textContent = encrypted ? 'Download Encrypted CSV' : 'Download CSV';
     renderHintWithCode(jsonHint, 'JSON will save as:', jsonName);
     renderHintWithCode(csvHint, 'CSV will save as:', csvName);
-    if (previewEl()) previewEl().textContent = expectedExportFilename('.json', encrypted);
+    if (previewEl()) previewEl().textContent = defaultExportFilename() + (encrypted ? '.bgo' : '.json');
   }
 
   function syncExportEncryptionUI() {
@@ -581,14 +617,14 @@
   function openModal() {
     const modal    = exportModalEl();
     const fnInput  = filenameEl();
-    const preview  = previewEl();
     const encChk   = exportEncryptEl();
 
     if (!modal || exportBusy) return;
+    // Freeze the default so the downloaded name matches the preview, even after waiting.
+    exportTimestampFilename = defaultFilename();
     resetExportDialog();
     setExportBusy(false);
     openDialog(modal, fnInput);
-    if (preview) preview.textContent = defaultFilename() + '.json';
     if (fnInput) fnInput.value = '';
     if (encChk) encChk.checked = false;
     if (exportPwdEl()) exportPwdEl().value = '';
@@ -607,9 +643,12 @@
     resetExportDialog();
   }
 
+  function defaultExportFilename() {
+    return exportTimestampEl().checked ? (exportTimestampFilename || defaultFilename()) : defaultFilename(false);
+  }
   function getModalFilename() {
     const raw = (filenameEl() || {}).value || '';
-    return App.utils.sanitizeFilename(raw) || defaultFilename();
+    return App.utils.sanitizeFilename(raw) || defaultExportFilename();
   }
 
   function getExportOptions() {
@@ -948,6 +987,7 @@
       exportPwdEl().value = '';
       importPwdEl().value = '';
       filenameEl().value = '';
+      exportTimestampEl().checked = true;
       document.getElementById('entry-fields').textContent = '';
       document.getElementById('toast-container').textContent = '';
       App.state.resetDocument();
@@ -1454,6 +1494,9 @@
     if (filenameEl()) {
       filenameEl().addEventListener('input', syncExportTargetHints);
     }
+    if (exportTimestampEl()) {
+      exportTimestampEl().addEventListener('change', syncExportTargetHints);
+    }
     if (exportEncryptEl()) {
       exportEncryptEl().addEventListener('change', syncExportEncryptionUI);
     }
@@ -1472,6 +1515,7 @@
     confirmExportWipe,
     monthLabel,
     stepper,
+    loanProgressLabel,
     setTheme,
     goToView,
     openEntry,

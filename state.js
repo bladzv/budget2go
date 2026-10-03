@@ -61,6 +61,8 @@
    * @property {string}      frequency
    * @property {number}      paymentAmount
    * @property {number}      monthsPaid
+   * @property {number}      paidPeriods — starting progress in repayment periods
+   * @property {number}      startingCredit — preserved partial-period credit from legacy month-based progress
    * @property {string|null} budgetEntryId  — id of linked BudgetEntry
    * @property {Payment[]}   payments
    */
@@ -86,6 +88,7 @@
   /** Replace the entire state (used by import). Returns the new state. */
   function setState(newState) {
     state = newState;
+    state.loans.forEach(normalizeLoanProgress);
     months[viewedMonth] = state;
     return state;
   }
@@ -115,6 +118,7 @@
         !Object.values(doc.months).every(validState)) return false;
     if (doc.version === 3 && (!validMonth(doc.viewedMonth) || !doc.months[doc.viewedMonth])) return false;
     months = clone(doc.months);
+    Object.values(months).forEach(month => month.loans.forEach(normalizeLoanProgress));
     activeMonth = keys.sort().at(-1);
     viewedMonth = doc.version === 3 ? doc.viewedMonth : doc.activeMonth;
     state = months[viewedMonth];
@@ -193,14 +197,37 @@
     return { monthlySalary, totalSavings, budgetExpenses, loanPayments, totalDeductions, remaining, paid, pending: totalDeductions - paid };
   }
 
+  function loanPeriodsLimit(loan) {
+    const payment = safeNum(loan.paymentAmount);
+    if (payment <= 0) return 0;
+    const duration = safeNum(loan.total) / payment;
+    if (!Number.isFinite(duration)) return Number.MAX_SAFE_INTEGER;
+    // Avoid an extra month caused by floating-point division of currency amounts.
+    return Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(duration - duration * Number.EPSILON));
+  }
+
+  function loanProgress(loan) {
+    if (loan.paidPeriods != null) {
+      return { paidPeriods: Math.max(0, Math.floor(safeNum(loan.paidPeriods))), startingCredit: safeNum(loan.startingCredit) };
+    }
+    const payment = safeNum(loan.paymentAmount);
+    const equivalent = Math.max(0, Math.floor(safeNum(loan.monthsPaid))) * (FREQ_TO_MONTHLY[loan.frequency] || 1);
+    const paidPeriods = Math.min(loanPeriodsLimit(loan), Math.floor(equivalent + equivalent * Number.EPSILON));
+    // Keep the original credited amount when legacy months do not divide into whole periods.
+    return { paidPeriods, startingCredit: safeNum(Math.max(0, (equivalent - paidPeriods) * payment)) };
+  }
+
+  function normalizeLoanProgress(loan) {
+    Object.assign(loan, loanProgress(loan));
+  }
+
   function loanStats(loan) {
     const payments = loan.payments || [];
     const paymentHistoryPaid = payments.reduce((s, p) => s + safeNum(p.amount), 0);
     const total = safeNum(loan.total);
     const perPayment = safeNum(loan.paymentAmount);
-    const monthlyPayment = perPayment * (FREQ_TO_MONTHLY[loan.frequency] || 1);
-    const monthsPaid = Math.max(0, Math.floor(safeNum(loan.monthsPaid)));
-    const seededPaid = monthlyPayment * monthsPaid;
+    const starting = loanProgress(loan);
+    const seededPaid = perPayment * starting.paidPeriods + starting.startingCredit;
     const totalPaid = paymentHistoryPaid + seededPaid;
     const remaining = Math.max(0, total - totalPaid);
     const progress = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
@@ -351,6 +378,8 @@
       budgetEntryId: null,
       payments: [],
     };
+    entry.paidPeriods = Math.min(loanPeriodsLimit(entry), Math.max(0, Math.floor(safeNum(values.paidPeriods != null ? values.paidPeriods : entry.monthsPaid * (FREQ_TO_MONTHLY[entry.frequency] || 1)))));
+    entry.startingCredit = 0;
     state.loans.push(entry);
     return entry.id;
   }
@@ -367,10 +396,16 @@
   function updateLoanField(id, field, value) {
     const item = state.loans.find((l) => l.id === id);
     if (!item) return;
+    normalizeLoanProgress(item);
     if (field === 'name')          item.name          = safeStr(value, 100);
     if (field === 'total')         item.total         = safeNum(value);
     if (field === 'paymentAmount') item.paymentAmount = safeNum(value);
-    if (field === 'monthsPaid')    item.monthsPaid    = Math.max(0, Math.floor(safeNum(value)));
+    if (field === 'paidPeriods')   item.paidPeriods   = Math.min(loanPeriodsLimit(item), Math.max(0, Math.floor(safeNum(value))));
+    if (field === 'monthsPaid') {
+      item.monthsPaid = Math.max(0, Math.floor(safeNum(value)));
+      delete item.paidPeriods; delete item.startingCredit;
+      normalizeLoanProgress(item);
+    }
     if (field === 'frequency' && VALID_FREQS.has(value)) item.frequency = value;
   }
 
@@ -424,6 +459,8 @@
     // Computed
     computeSummary,
     loanStats,
+    loanPeriodsLimit,
+    loanProgress,
     salaryTotal,
     savingsTotal,
     budgetTotal,
