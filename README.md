@@ -10,225 +10,161 @@
   <img alt="Open Source" src="https://img.shields.io/badge/Open%20Source-Yes-blue">
 </p>
 
-## Live Demo
-
-- [GitHub Pages](https://bladzv.github.io/budget2go/)
-
 ## Overview
-Budget2Go is a lightweight, browser-based personal finance app for tracking:
-- Income and salary, including frequency-aware monthly equivalents
-- Savings balances
-- Budget and expense items
-- Loan balances, payment progress, and payment history
 
-It supports JSON/CSV import and export, password-protected encrypted `.bgo` files, offline use through a PWA service worker, and user-selectable display currency and theme.
+Budget2Go is a browser-based personal finance app for planning a monthly budget, tracking paid expenses, keeping savings balances in view, and recording loan repayments. It calculates how much income remains unallocated and saves your records locally as you work.
 
-## Current Project Status
+The app runs entirely on the client, with no backend or account required. It supports desktop and mobile layouts, portable backups, and offline use through an installable Progressive Web App (PWA).
 
-Updated October 4, 2026. The repository currently implements a client-side monthly planning app with five views: **Overview**, **Budget**, **Accounts**, **Loans**, and **Settings**. Desktop uses sidebar navigation and tables; mobile uses bottom navigation, compact rows, and entry sheets. The app includes refreshed branding and a welcome introduction whose dismissal is remembered in this browser.
+[Open the live demo on GitHub Pages](https://bladzv.github.io/budget2go/).
 
-- **Monthly planning:** independently editable months, a month/year picker, optional recurring-item copying into an empty month, paid/unpaid filters, and totals for planned commitments and unallocated income.
-- **Accounts and loans:** frequency-aware income, savings balances, loan starting progress in repayment periods, dated payment history, payoff limits, and undo for recent changes.
-- **Editing tools:** staged entry forms, explicit edit controls, quick amount edits, calculators beside amount fields, localized number formatting, and system/light/dark appearance.
-- **Data and backups:** local autosave, version 3 JSON/CSV backups covering all months, legacy backup imports, encrypted `.bgo` exports, import previews, and optional wiping after export with a separate confirmation.
-- **Delivery and coverage:** Vite production builds, a generated bundle for opening `index.html` directly, offline PWA support, and Playwright suites configured for desktop and mobile Chrome. GitHub Pages CI checks dependency advisories, bundle freshness, and browser tests before deployment.
+## What You Can Do
 
-Financial data is stored in this browser profile; there is no backend, account login, bank integration, or cloud synchronization. Monthly accounts and loans are independent snapshots, so edits and payments in one month do not update another month. Currency changes relabel amounts without converting them. Backups are the way to move records between browsers or devices.
+| View | Capabilities |
+| --- | --- |
+| **Overview** | See monthly income, planned commitments, unallocated income, paid/unpaid totals, payment progress, savings, and outstanding loans. Mark unpaid items complete. |
+| **Budget** | Add and edit expenses, flag recurring items, include linked loan payments, and filter by All, Unpaid, or Paid. |
+| **Accounts** | Track multiple income sources with monthly, bi-weekly, or weekly pay frequencies and record savings balances by institution or wallet. |
+| **Loans** | Track loan totals, repayment frequency, amount per payment, starting repayment progress, remaining balances, and dated payment history. Add a loan payment to the budget. |
+| **Settings** | Manage backups, currency, number formatting, appearance, the privacy dashboard, and local data deletion. |
 
-## Features
+Across the app, you can:
 
-- Realtime totals and summary stats while editing fields
-- Independently editable monthly plans, a month/year picker, and local autosave
-- Empty new months with optional copying of recurring items from another month
-- Paid loan budget items record dated payments and update loan progress; recent actions can be undone
-- Loan tracking with frequency-aware starting repayment periods, payoff limits, and progress calculations
-- Budget item paid state for visual tracking of completed expenses
-- Single budget currency with common presets: PHP, USD, EUR, GBP, JPY, SGD. Switching the label never converts amounts.
-- System, light, and dark appearance with saved preference
-- Privacy dashboard with local storage/cache/export/network visibility
-- Confirmed local data wipe (state, preferences, and offline caches), preserving the welcome dismissal preference
-- Calculator controls beside amount fields, with an explicit destination and a valid, non-negative result before applying; the floating calculator also works independently
-- Installable PWA with offline caching
-- Export options:
-  - Plain JSON
-  - Plain CSV
-  - Encrypted `.bgo` using AES-GCM + PBKDF2
-- Import options:
-  - JSON / CSV
-  - Encrypted `.bgo` with password
-  - Preview and explicit confirmation before replacing the local draft
-- Five focused views: Overview, Budget, Accounts, Loans, and Settings
-- Overview with unallocated income, planned/unpaid commitments, and payment progress
-- Staged entry forms; quick amount edits commit on Enter or blur, and Escape cancels
-- All, Unpaid, and Paid budget filters; full loan payment history in paginated details
-- Responsive layout:
-  - Desktop: sidebar navigation, tables, and loan progress cards
-  - Mobile: bottom navigation, stacked rows, and entry sheets
-
-## Tech Stack
-
-- HTML5
-- CSS3
-- Vanilla JavaScript with IIFE modules and a shared `window.App` namespace
-- Vite for development and production builds
-- Rolldown for the standalone browser bundle
-- `vite-plugin-pwa` for offline support and app manifest generation
-- `lucide` icons from npm
-- Playwright for smoke/regression testing
-- Web Crypto API for encryption and decryption
-
-## Getting Started
-
-GitHub Pages CI uses Node.js 20. Install Node.js and npm before running the commands below.
-
-On macOS, you can also open `index.html` directly in Brave. The repository
-includes a standalone browser bundle for this case; `npm run build` refreshes it
-after source changes. A local `file://` page cannot install the offline PWA, so
-use the dev server or deployed site for that feature.
-
-### 1. Install dependencies
-```bash
-npm install
-```
-
-### 2. Start the dev server
-```bash
-npm run dev
-```
-Open the URL Vite prints in the terminal.
-
-### 3. Build for production
-```bash
-npm run build
-```
-
-This builds the production site in `dist/` and refreshes the checked-in `standalone.js`. When only the direct-file bundle needs refreshing, run `npm run build:standalone`.
-
-### 4. Preview the production build
-```bash
-npm run preview
-```
-
-### 5. Run the browser tests
-```bash
-npm run test
-```
-
-If Playwright browsers are not installed yet:
-```bash
-npm run test:install
-```
-
-The suites cover desktop Chrome and mobile Chrome (Pixel 5), including direct `file://` loading, monthly planning, loan progress, backup round trips, calculator destinations, welcome dismissal, export/wipe safeguards, and responsive layouts. Coverage is defined in the test files; run the suite to obtain current pass/fail results.
-
-## Deploy to GitHub Pages
-
-The automated GitHub Pages workflow is defined in `.github/workflows/deploy-pages.yml`.
-
-How it works:
-1. Trigger: runs on every push to `main` and on manual `workflow_dispatch`.
-2. Dependencies: installs with `npm ci`, checks `npm audit --audit-level=high`, and installs Playwright Chromium.
-3. Build: runs `npm run build`, then checks that the generated `standalone.js` matches the checked-in bundle.
-4. Browser tests: runs `npm run test` on desktop and mobile Chrome.
-5. Publish: uploads `dist/` and deploys it with GitHub Pages actions after those checks pass.
-
-One-time repository setup:
-1. In GitHub, go to **Settings > Pages**.
-2. Set **Source** to **GitHub Actions**.
-3. Ensure pushes to `main` are permitted for your release flow.
-
-Manual fallback deploy (if needed):
-1. Run `npm run build`.
-2. Publish the contents of `dist/` to your static host.
-
-Notes:
-- `.nojekyll` is included to avoid Jekyll processing issues.
-- Static asset URLs are configured for project-site deployments such as `/budget2go/`.
-
-## Project Structure
-
-```text
-budget2go/
-├── AGENTS.md
-├── .agents/
-│   └── skills/
-│       ├── generate-logs/SKILL.md
-│       └── generate-pr-description/SKILL.md
-├── app.js
-├── .github/
-│   └── workflows/
-│       └── deploy-pages.yml
-├── events.js
-├── file-loader.js
-├── icon.png
-├── icon.svg
-├── index.html
-├── io.js
-├── lucide-setup.js
-├── main.js
-├── playwright.config.js
-├── persistence.js
-├── public/
-│   ├── file-loader.js
-│   ├── icon.png
-│   └── icon.svg
-├── output/
-│   └── logo-concepts/
-├── render.js
-├── standalone.js
-├── state.js
-├── styles.css
-├── tests/
-│   ├── budget.spec.js
-│   ├── calculator.spec.js
-│   └── welcome-export.spec.js
-├── ui.js
-├── utils.js
-├── vite.config.mjs
-├── package.json
-├── package-lock.json
-└── LICENSE
-```
-
-`main.js` imports Lucide setup first, then the application modules. Runtime modules expose their APIs through `window.App`; `app.js` initializes them after the DOM is ready. `persistence.js` handles local draft storage, while `file-loader.js` selects the generated standalone bundle for direct-file use.
-
-## Security Notes
-
-- Encrypted exports use:
-  - AES-GCM for authenticated encryption
-  - PBKDF2-SHA256 with a per-file random salt and a high iteration count
-  - A per-file random IV
-- Exported CSV values are hardened against formula injection.
-- The app uses a meta Content Security Policy for supported directives. GitHub Pages does not supply project-specific response headers here, so this policy does not provide framing protection.
-- Use strong passwords for encrypted exports.
-- The autosaved draft is plain data in this browser's local storage. Anyone with access to this browser profile can read it; use encrypted exports for portable backups.
-- Import limits are 5 MB, 120 months, 2,000 entries per category per month, and 5,000 payments per loan.
+- Plan past, current, and future months using a shared month/year picker, with up to 120 saved months per document.
+- Start an empty monthly plan or copy recurring items from another saved month.
+- Add and edit entries in forms that save only when you choose **Save entry**. Quick amount edits commit on Enter or blur; Escape cancels them.
+- Use calculators beside amount fields to apply a valid, non-negative result to that field, or use the floating calculator independently.
+- Undo recent deletions and paid-state changes within six seconds.
+- Choose PHP, USD, EUR, GBP, JPY, or SGD, localized amount formatting, and optional thousands separators.
+- Follow the device theme or choose light or dark appearance.
+- Use sidebar navigation and tables on desktop, or bottom navigation, compact rows, and entry sheets on mobile.
 
 ## Monthly Workflow
 
-Open **Overview** for the monthly plan, **Budget** to add expenses or mark items paid, **Accounts** for income and savings, and **Loans** for repayments. Choose a month with the shared month picker. **Unallocated income** means monthly income minus planned commitments; it is not a bank balance. Backups, currency, appearance, and privacy controls are in **Settings**. The header offers **Export** when a document has data, and **Import** when it is empty.
+1. Choose a month and add income sources in **Accounts**, including the amount per pay period and frequency. Add savings balances separately.
+2. Add planned expenses in **Budget** and flag expenses you want to copy into another month as recurring.
+3. Add loans in **Loans**, enter any starting repayment progress, and use **To budget** to create linked payment items.
+4. Check **Overview** to see how much income remains to allocate. Mark budget items paid as you complete them; paying a linked loan item records a dated payment and updates loan progress. Unmarking it removes that linked payment.
+5. For an empty month, use **Copy recurring items** to copy income, savings, loans, recurring expenses, and linked loan items from another month. Paid checkboxes reset; loan starting progress and payment history carry over.
+6. Export a backup from **Settings** to keep a portable copy of all months.
 
-Add entries through a form and save when ready; closing the form discards unfinished changes. Use the pencil buttons to edit income, savings, or expense details; select a loan name to open its details and payment history. Quick amount edits save on Enter or when leaving the field; Escape restores the prior amount.
+### How the Figures Work
 
-The month picker supports every month from year 1 to 9999, with up to 120 saved months in a document. Past and future months are independently editable. Opening a new month starts an empty plan. **Copy recurring items** optionally copies income, savings, loans (including starting progress and payment history), recurring expenses and linked loan items from a chosen month, with paid checkboxes reset. Changes remain confined to the selected month. Mark a linked loan budget item paid to record a payment; **Undo** reverses that action for six seconds.
+- **Monthly income:** monthly amounts count once; bi-weekly amounts use `26 / 12`; weekly amounts use `52 / 12`. These are monthly averages.
+- **Planned commitments:** expenses plus linked loan budget allocations. Adding a loan alone does not allocate a budget payment.
+- **Unallocated income:** monthly income minus all planned commitments, including items already marked paid. Savings balances are shown separately. This figure is a planning total, not a bank balance.
+- **Loan progress:** starting repayment periods and any preserved legacy partial-period credit, plus recorded payments. Remaining balances and progress use the entered loan total; the app does not calculate interest or amortization schedules.
 
-The app saves edits locally. The header offers Import for an empty document and Export when financial data exists in any month. Version 3 JSON and CSV backups preserve all months, the selected month and currency; CSV also includes spreadsheet-friendly tables with a month column. Older JSON, CSV and encrypted backups remain importable. Importing either format previews its contents before replacing the current draft. A storage failure is shown above the page heading; export a backup if that happens.
+Each month is an independent snapshot. Editing an account, expense, or loan, or recording a payment in one month, does not update another month. Copying recurring items is an explicit action available for an empty plan.
 
-Thousands separators are enabled by default for monetary values, with a saved toggle in Settings. Currency-specific separators are supported in amount fields; backup amounts remain numbers. Loan steppers adjust starting repayment periods before tracking, separately from recorded payments. The label follows the repayment frequency, and starting progress is capped at the number of payments needed to repay the loan. Legacy month-based loan progress retains its credited amount when imported.
+Currency is a display preference for the whole document. Switching currency relabels amounts without converting their values.
 
-### Welcome and Backup Cleanup
+## Data, Backups, and Privacy
 
-First visits show a welcome introduction explaining monthly planning, savings, loans, and local backups. Its dismissal is remembered in this browser, including after a wipe. This preference is excluded from exported financial backups.
+Edits autosave to this browser profile's local storage. Financial data and imported files are processed locally and are not uploaded to a backend. There is no login, bank integration, or cloud synchronization; use backups to move records between browsers or devices.
 
-Exports offer an optional **Wipe local data after export** checkbox. After the download starts, choose **I saved my backup — wipe data** only once your file is saved. **Keep data**, closing the dialog, or an export error retains your records. A confirmed wipe clears all months, preferences, export metadata, offline caches, Undo, and pending imports, while keeping the welcome dismissal marker. Failed deletion is reported; an undeleted saved draft is kept for recovery.
+The local draft is stored **unencrypted**. Anyone with access to that browser profile can read it, and clearing browser storage can remove it. Export backups regularly. A visible save failure means you should export a backup to preserve your work.
 
-## Privacy Disclaimer
+### Backup Formats
 
-- Budget2Go is a static client-side web application.
-- Import and export processing happens locally in your browser.
-- Local drafts are stored unencrypted in this browser profile until wiped.
-- The app does not upload your files or financial data to a backend server.
-- Core app flows are designed to run without third-party network requests.
+| Format | Purpose |
+| --- | --- |
+| **JSON** | A complete Budget2Go document containing all months, the selected month, and currency. |
+| **CSV** | A complete document plus spreadsheet-friendly section tables with a month column and loan payment history. |
+| **Encrypted `.bgo`** | A password-protected JSON or CSV backup, encrypted locally with the Web Crypto API. |
+
+Version 3 exports preserve all months. Older Budget2Go JSON, CSV, and encrypted backups remain importable. Imports use Budget2Go's document formats; CSV import is not a general-purpose bank statement importer.
+
+Importing shows a preview and requires confirmation before replacing the entire local draft. It does not merge records. Import limits are 5 MB per file, 120 months, 2,000 entries per category per month, and 5,000 payments per loan.
+
+The header offers **Import** when the document is empty and **Export** when any month contains financial data. Both controls are also available in **Settings**. Exports support custom filenames and an optional timestamp.
+
+### Local Cleanup
+
+The privacy dashboard shows local storage usage, cache count, last export time, whether the last export was encrypted, and observed outbound requests. Core app flows are designed to run without third-party network requests.
+
+**Wipe all local data** requires confirmation and clears financial records, preferences, export metadata, offline caches, and pending actions. The welcome introduction's dismissal marker is retained and is excluded from financial backups.
+
+Exports also offer **Wipe local data after export**. Once the download starts, a separate **I saved my backup — wipe data** confirmation lets you clear the browser's records after saving the file. Keeping data, closing the dialog, or an export error retains the draft. Failed cleanup is reported; if the saved draft cannot be deleted, records are kept for recovery.
+
+### Security Details
+
+- Encrypted exports use AES-GCM-256 with PBKDF2-SHA256, 600,000 iterations, and a random salt and IV per file. Encryption protects the exported file; it does not encrypt the autosaved draft.
+- Use a strong password for encrypted backups. Encryption and decryption require browser support for the Web Crypto API.
+- Exported CSV values are hardened against formula injection.
+- The page includes a meta Content Security Policy for supported directives. The GitHub Pages setup does not supply project-specific response headers, so this policy does not provide framing protection.
+
+## Run Locally
+
+Use Node.js **20.19+ on the 20.x line, or 22.12+** and npm, matching the Vite and Rolldown engine requirements.
+
+```bash
+npm install
+npm run dev
+```
+
+Open the URL Vite prints in the terminal.
+
+### Open Directly from Disk
+
+You can also open the checked-in `index.html` directly in a browser that supports local file pages. `file-loader.js` loads the included `standalone.js` bundle for `file://` use, so this path does not require a development server.
+
+After changing runtime modules, refresh that bundle with `npm run build` or `npm run build:standalone`. Local file pages cannot install the PWA. Use the deployed HTTPS production site for installation and offline caching after the first load.
+
+### Build and Preview
+
+```bash
+npm run build
+npm run preview
+```
+
+The build creates the production site in `dist/` and refreshes the checked-in `standalone.js` bundle. Preview serves the production output locally.
+
+### Browser Tests
+
+```bash
+npm run test:install
+npm run test
+```
+
+The install command downloads Playwright's Chromium browser and is needed when it is not already available. Tests run against desktop Chrome and mobile Chrome (Pixel 5), with Vite started automatically by the test configuration.
+
+The suites exercise direct `file://` loading, monthly planning, loan progress and payments, JSON/CSV/encrypted backup round trips, import previews, autosave failures, calculator destinations, welcome dismissal, export/wipe safeguards, privacy controls, and responsive layouts.
+
+## Architecture
+
+Budget2Go uses HTML, CSS, and vanilla JavaScript. Runtime modules are IIFEs exposing their APIs through the shared `window.App` namespace.
+
+| File | Responsibility |
+| --- | --- |
+| `index.html`, `styles.css` | App shell, views, dialogs, and responsive styling. |
+| `main.js`, `lucide-setup.js` | Vite entry point and bundled Lucide icons. Lucide setup loads before the app modules. |
+| `utils.js` | Formatting, currency handling, input sanitization, IDs, and filenames. |
+| `state.js` | Monthly documents, financial records, calculations, and mutations. |
+| `persistence.js` | Local draft restore, autosave, and storage status. |
+| `render.js` | Tables, loan cards, summaries, and month labels. |
+| `io.js` | Backup import/export, validation, CSV handling, and encryption. |
+| `ui.js`, `events.js` | Navigation, forms, dialogs, calculator, privacy controls, and user interactions. |
+| `app.js` | Initialization after the DOM is ready. |
+| `file-loader.js`, `public/file-loader.js`, `standalone.js` | Direct-file loading and the generated browser bundle. |
+| `vite.config.mjs`, `public/` | Static build configuration, PWA manifest/service worker generation, and assets. |
+| `tests/`, `playwright.config.js` | Browser regression tests and desktop/mobile configuration. |
+| `.github/workflows/deploy-pages.yml` | Build, validation, and GitHub Pages deployment. |
+
+Vite builds the static site, Rolldown generates the standalone bundle, and `vite-plugin-pwa` generates the manifest and offline service worker. Keep application behavior client-side and regenerate `standalone.js` after source changes that affect direct-file use.
+
+## Deployment
+
+The GitHub Pages workflow runs on pushes to `main` and manual dispatch. It:
+
+1. Installs dependencies with `npm ci` and checks dependency advisories with `npm audit --audit-level=high`.
+2. Installs Playwright Chromium and builds the production and standalone bundles.
+3. Checks that `standalone.js` matches the checked-in bundle and runs browser tests.
+4. Uploads `dist/` and deploys to GitHub Pages when the checks pass.
+
+To enable deployment, set the repository's **Settings > Pages > Source** to **GitHub Actions**.
+
+For other static hosts, run `npm run build` and publish the contents of `dist/`. Asset paths use Vite's relative base (`./`), supporting project subpaths such as `/budget2go/`. No application server is required.
 
 ## License
 
