@@ -1,0 +1,7 @@
+Use case: precise-object-edit / logo-brand.
+Edit the attached Budget2Go B-wallet logo.
+REMOVE the entire Budget2Go wordmark and all text completely. Deliver ONLY the standalone B-wallet symbol.
+REDUCE THE HEIGHT of the actual symbol by about 15-20% relative to its width so that its overall silhouette INCLUDING the clasp is approximately equally wide and tall. The user wants a compact square-proportioned logo, not a tall B simply placed onto a square background. Make the wallet shorter and slightly broader while retaining an unmistakable uppercase B with two rounded open counters. Keep the same indigo #4F46E5, folded top-and-left edge, rounded right lobes, horizontal clasp strap with round button hole, simple clean flat geometry. Preserve the circular button hole without squashing it. Maintain balanced bold thicknesses and smooth corners.
+Canvas: EXACTLY SQUARE 1024 x 1024 pixels. Center the standalone mark horizontally and vertically. It should occupy about 82% of the square's width and height with even transparent padding on all four sides. No residual text or extra marks.
+Transparency: background and ALL negative space inside the B, the clasp button hole, and the fold/seam cuts must be genuinely alpha-transparent. No black or white background, no tile or badge, no checkerboard baked in. All visible logo shapes should be flat solid indigo; no shadows, glow, gradients, texture or 3D.
+Keep recognizable B-wallet identity from the reference. Change only removal of text, shorter square proportions, and centering on a square canvas.

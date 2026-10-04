@@ -3,249 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';">
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-  <meta http-equiv="X-Frame-Options" content="DENY">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <title>Budget2Go — Personal Finance Manager</title>
-  <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#0F0F1A" id="meta-theme-color">
+  <link rel="icon" href="./icon.png" type="image/png" sizes="1254x1254">
+  <link rel="apple-touch-icon" href="./icon.png">
+  <meta name="theme-color" content="#F7F8FA" id="meta-theme-color">
 
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- ══════════════════════════════════════
-       STICKY HEADER
-  ══════════════════════════════════════ -->
-  <header class="app-header" role="banner">
-    <div class="header-inner">
-      <div class="brand">
-        <div class="brand-icon">
-          <i data-lucide="wallet" style="width:15px;height:15px;"></i>
-        </div>
-        <span>Budget2Go</span>
-        <span class="brand-subtitle">Personal Finance Manager</span>
-      </div>
-      <div class="header-actions">
-        <select class="select-currency" id="currency-select" aria-label="Select display currency">
-          <option value="PHP|en-PH">₱ PHP</option>
-          <option value="USD|en-US">$ USD</option>
-          <option value="EUR|de-DE">€ EUR</option>
-          <option value="GBP|en-GB">£ GBP</option>
-          <option value="JPY|ja-JP">¥ JPY</option>
-          <option value="SGD|en-SG">S$ SGD</option>
-        </select>
-        <button class="btn btn-ghost" id="btn-theme-toggle" aria-label="Toggle light/dark theme">
-          <i data-lucide="sun" style="width:13px;height:13px;"></i>
-        </button>
-        <button class="btn btn-ghost" id="btn-open-privacy" aria-haspopup="dialog" aria-controls="privacy-modal">
-          <i data-lucide="info" style="width:13px;height:13px;"></i>
-          Privacy
-        </button>
-        <button class="btn btn-ghost btn-danger-outline" id="btn-wipe-data" aria-label="Wipe all local data">
-          <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
-          Wipe
-        </button>
-        <button class="btn btn-ghost" id="btn-toggle-import" aria-haspopup="dialog" aria-controls="import-modal">
-          <i data-lucide="upload" style="width:13px;height:13px;"></i>
-          Import
-        </button>
-        <button class="btn btn-primary" id="btn-finalize" aria-label="Export data">
-          <i data-lucide="download" style="width:13px;height:13px;"></i>
-          Export
-        </button>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="app-header">
+    <a class="brand" href="#overview"><span class="brand-icon"><img src="./icon.png" alt="" width="36" height="36"></span>Budget2Go</a>
+    <button class="btn btn-ghost" id="btn-header-import" data-header-action="import" aria-haspopup="dialog" aria-controls="import-modal"><i data-lucide="upload"></i>Import</button>
+  </header>
+  <nav class="app-nav" aria-label="Main navigation"><button class="nav-item" data-view="overview" aria-controls="view-overview"><i data-lucide="house"></i><span>Overview</span></button><button class="nav-item" data-view="budget" aria-controls="view-budget"><i data-lucide="receipt"></i><span>Budget</span></button><button class="nav-item" data-view="accounts" aria-controls="view-accounts"><i data-lucide="wallet"></i><span>Accounts</span></button><button class="nav-item" data-view="loans" aria-controls="view-loans"><i data-lucide="credit-card"></i><span>Loans</span></button><button class="nav-item" data-view="settings" aria-controls="view-settings"><i data-lucide="settings"></i><span>Settings</span></button><div class="local-note"><i data-lucide="shield-check"></i>Stored on this device</div></nav>
+  <main class="page-wrapper" id="main-content" tabindex="-1">
+    <div class="save-status" id="save-status" role="status" aria-live="polite" data-state="idle" hidden>No local draft</div>
+    <div class="page-heading"><div><h1 id="view-title" tabindex="-1">Overview</h1><p id="view-description">Your monthly plan at a glance.</p></div>
+      <div class="month-nav" id="month-context">
+        <div class="month-controls"><button class="btn-icon" data-month-shift="-1" aria-label="Previous month"><i data-lucide="chevron-left"></i></button><button class="btn btn-ghost" id="month-picker-button" aria-haspopup="dialog" aria-controls="month-modal"><span id="selected-month-label"></span></button><button class="btn-icon" data-month-shift="1" aria-label="Next month"><i data-lucide="chevron-right"></i></button></div>
+        <div class="month-meta"><span id="month-mode-label"></span><button class="text-button" id="btn-copy-month" hidden>Copy recurring items</button></div>
       </div>
     </div>
-  </header>
-
-  <!-- ══════════════════════════════════════
-       MAIN CONTENT
-  ══════════════════════════════════════ -->
-  <main class="page-wrapper" role="main">
-    <section class="app-disclaimer" role="note" aria-label="Privacy disclaimer">
-      <h2 class="app-disclaimer-title">Privacy Disclaimer</h2>
-      <p class="app-disclaimer-text">
-        Budget2Go is a static client-side web app. Your files are processed locally in your browser and are not uploaded to any server by this app.
-      </p>
+    <section class="app-view" id="view-overview" aria-labelledby="view-title">
+      <div class="overview-actions"><button class="btn btn-primary" data-add="budget"><i data-lucide="plus"></i>Add expense</button></div>
+      <div class="hero card"><span class="eyebrow">Unallocated income</span><strong id="sum-remaining">₱&nbsp;0.00</strong><p>Income minus planned commitments. This is a planning figure, not your bank balance.</p><span id="allocation-note"></span></div>
+      <div class="metric-grid"><div class="card metric"><span>Monthly income</span><strong id="sum-income">₱&nbsp;0.00</strong></div><div class="card metric"><span>Planned commitments</span><strong id="sum-deductions">₱&nbsp;0.00</strong></div><div class="card metric"><span>Unpaid commitments</span><strong id="sum-pending">₱&nbsp;0.00</strong></div></div>
+      <div class="position-grid"><section class="card payment-progress"><h2>Monthly payments</h2><p><strong id="sum-paid">₱&nbsp;0.00</strong> paid of <span id="overview-planned">₱&nbsp;0.00</span> planned</p><div class="progress-line"><progress id="payment-progress" max="100" value="0" aria-label="Planned commitments paid"></progress><span id="payment-percent">0%</span></div></section><button class="card metric metric-link" data-view="accounts"><span>Savings</span><strong id="sum-savings">₱&nbsp;0.00</strong><small>View accounts →</small></button><button class="card metric metric-link" data-view="loans"><span>Outstanding loans</span><strong id="overview-loans">₱&nbsp;0.00</strong><small>View loans →</small></button></div>
+      <section class="card"><div class="card-header"><h2>Unpaid items</h2><button class="text-button" data-view="budget">View budget →</button></div><div id="overview-unpaid"></div></section>
+      <section class="card welcome" id="overview-welcome"><i data-lucide="wallet"></i><h2>Make room for what matters</h2><p>Start with your income, then plan expenses and track payments. Your data stays in this browser. Export a backup to keep a portable copy.</p><div class="button-row"><button class="btn btn-primary" data-add="salary">Add your income</button><button class="btn btn-ghost" data-open-import>Import a backup</button></div></section>
+      <p class="storage-note"><i data-lucide="shield-check"></i>Saved locally in this browser. <button class="text-button" data-view="settings">Privacy &amp; backups</button></p>
     </section>
-    <div class="main-content">
-
-      <!-- ── SALARY / INCOME ── -->
-      <section class="card" id="section-salary" aria-label="Income and salary">
-        <div class="card-header">
-          <div class="card-title">
-            <div class="card-title-icon icon-cyan">
-              <i data-lucide="trending-up" style="width:15px;height:15px;"></i>
-            </div>
-            Income &amp; Salary
-          </div>
-          <div class="card-header-right">
-            <span class="section-total" id="salary-total">—</span>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="table-salary">
-            <thead>
-              <tr>
-                <th>Source / Employer</th>
-                <th>Amount</th>
-                <th>Frequency</th>
-                <th class="col-hide-sm">Monthly Equiv.</th>
-                <th class="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody id="salary-body"></tbody>
-          </table>
-        </div>
-        <div class="card-footer">
-          <button class="btn btn-add" id="btn-add-salary">
-            <i data-lucide="plus" style="width:13px;height:13px;"></i>
-            Add Income Source
-          </button>
-        </div>
-      </section>
-
-      <!-- ── CURRENT SAVINGS ── -->
-      <section class="card" id="section-savings" aria-label="Current savings">
-        <div class="card-header">
-          <div class="card-title">
-            <div class="card-title-icon icon-green">
-              <i data-lucide="piggy-bank" style="width:15px;height:15px;"></i>
-            </div>
-            Current Savings
-          </div>
-          <div class="card-header-right">
-            <span class="section-total" id="savings-total">—</span>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="table-savings">
-            <thead>
-              <tr>
-                <th>Institution / Wallet</th>
-                <th>Balance</th>
-                <th class="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody id="savings-body"></tbody>
-          </table>
-        </div>
-        <div class="card-footer">
-          <button class="btn btn-add" id="btn-add-savings">
-            <i data-lucide="plus" style="width:13px;height:13px;"></i>
-            Add Savings Account
-          </button>
-        </div>
-      </section>
-
-      <!-- ── BUDGET & EXPENSES ── -->
-      <section class="card" id="section-budget" aria-label="Budget and expenses">
-        <div class="card-header">
-          <div class="card-title">
-            <div class="card-title-icon icon-yellow">
-              <i data-lucide="receipt" style="width:15px;height:15px;"></i>
-            </div>
-            Budget &amp; Expenses
-          </div>
-          <div class="card-header-right">
-            <span class="section-total" id="budget-total">—</span>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="table-budget">
-            <thead>
-              <tr>
-                <th class="col-check"></th>
-                <th>Item / Description</th>
-                <th>Allocated</th>
-                <th class="col-hide-sm">Type</th>
-                <th class="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody id="budget-body"></tbody>
-          </table>
-        </div>
-        <div class="card-footer">
-          <button class="btn btn-add" id="btn-add-budget">
-            <i data-lucide="plus" style="width:13px;height:13px;"></i>
-            Add Budget Item
-          </button>
-        </div>
-      </section>
-
-      <!-- ── ACTIVE LOANS ── -->
-      <section class="card" id="section-loans" aria-label="Active loans">
-        <div class="card-header">
-          <div class="card-title">
-            <div class="card-title-icon icon-red">
-              <i data-lucide="credit-card" style="width:15px;height:15px;"></i>
-            </div>
-            Active Loans
-          </div>
-          <div class="card-header-right">
-            <span class="section-total" id="loans-total">—</span>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="table-loans">
-            <thead>
-              <tr>
-                <th>Lender / Loan Name</th>
-                <th class="col-hide-sm">Total</th>
-                <th class="col-hide-sm">Per Payment</th>
-                <th class="col-hide-sm">Months Paid</th>
-                <th class="col-hide-sm">Frequency</th>
-                <th>Progress</th>
-                <th class="col-hide-sm">Remaining</th>
-                <th class="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody id="loans-body"></tbody>
-          </table>
-        </div>
-        <div class="card-footer">
-          <button class="btn btn-add" id="btn-add-loan">
-            <i data-lucide="plus" style="width:13px;height:13px;"></i>
-            Add Loan
-          </button>
-        </div>
-      </section>
-
-    </div><!-- /.main-content -->
+    <section class="app-view" id="view-budget" hidden>
+      <div class="metric-grid budget-metrics"><div class="card metric"><span>Unallocated income</span><strong id="budget-remaining"></strong></div><div class="card metric"><span>Paid commitments</span><strong id="budget-paid"></strong></div><div class="card metric"><span>Unpaid commitments</span><strong id="budget-pending"></strong></div></div>
+      <section class="card" id="section-budget"><div class="card-header"><div><h2>Budget &amp; expenses</h2><p class="section-caption">Planned total <span id="budget-total">—</span></p></div><button class="btn btn-primary" id="btn-add-budget" data-add="budget"><i data-lucide="plus"></i>Add expense</button></div>
+      <div class="filter-bar" role="group" aria-label="Filter budget items"><button class="filter-button" data-filter="all" aria-pressed="true">All</button><button class="filter-button" data-filter="unpaid" aria-pressed="false">Unpaid</button><button class="filter-button" data-filter="paid" aria-pressed="false">Paid</button></div>
+      <div class="table-wrap"><table class="table-budget"><thead><tr><th>Paid</th><th>Item</th><th>Allocated</th><th>Repeat</th><th><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="budget-body"></tbody></table></div>
+      <div class="budget-breakdown">Expenses <strong id="sum-expenses"></strong><span>Loan payments <strong id="sum-loan-pmts"></strong></span></div></section>
+    </section>
+    <section class="app-view" id="view-accounts" hidden>
+      <section class="card" id="section-salary"><div class="card-header"><div><h2>Income sources</h2><p class="section-caption" id="salary-total">—</p></div><button class="btn btn-primary" id="btn-add-salary" data-add="salary"><i data-lucide="plus"></i>Add income</button></div><div class="table-wrap"><table class="table-salary"><thead><tr><th>Source</th><th>Amount</th><th>Monthly equivalent</th><th><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="salary-body"></tbody></table></div></section>
+      <section class="card" id="section-savings"><div class="card-header"><div><h2 id="savings-heading">Savings balances</h2><p class="section-caption" id="savings-total">—</p></div><button class="btn btn-primary" id="btn-add-savings" data-add="savings"><i data-lucide="plus"></i>Add account</button></div><div class="table-wrap"><table class="table-savings"><thead><tr><th>Institution / wallet</th><th>Balance</th><th><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="savings-body"></tbody></table></div></section>
+    </section>
+    <section class="app-view" id="view-loans" hidden><div class="view-toolbar"><div><h2 id="loans-heading">Active loans</h2><p id="loans-total" class="section-caption">—</p></div><button class="btn btn-primary" id="btn-add-loan" data-add="loans"><i data-lucide="plus"></i>Add loan</button></div><div id="loans-body" class="loan-grid"></div></section>
+    <section class="app-view settings-grid" id="view-settings" hidden>
+      <section class="card settings-card"><h2>Appearance</h2><p>Choose the look that feels comfortable.</p><label class="form-label" for="theme-select">Theme</label><select class="form-input" id="theme-select"><option value="system">Follow device</option><option value="light">Light</option><option value="dark">Dark</option></select></section>
+      <section class="card settings-card"><h2>Number formatting</h2><p>Make large amounts easier to read.</p><label class="form-check"><input id="grouping-toggle" type="checkbox" checked>Use thousands separators</label></section>
+      <section class="card settings-card"><h2>Currency</h2><label class="form-label" for="currency-select">Budget currency</label><select class="form-input" id="currency-select" aria-describedby="currency-note"><option value="PHP|en-PH">₱ PHP</option><option value="USD|en-US">$ USD</option><option value="EUR|de-DE">€ EUR</option><option value="GBP|en-GB">£ GBP</option><option value="JPY|ja-JP">¥ JPY</option><option value="SGD|en-SG">S$ SGD</option></select><p id="currency-note" class="form-hint">Changing currency relabels amounts; it does not convert them.</p></section>
+      <section class="card settings-card"><h2>Backups</h2><p>Export all months to JSON, CSV, or a password-protected .bgo file. Importing a backup replaces your local draft after a preview.</p><div class="button-row"><button class="btn btn-primary" id="btn-finalize"><i data-lucide="download"></i>Export backup</button><button class="btn btn-ghost" id="btn-toggle-import"><i data-lucide="upload"></i>Import backup</button></div></section>
+      <section class="card settings-card"><h2>Privacy</h2><p>Files are processed locally and are not uploaded. Drafts are stored unencrypted in this browser profile. Use an encrypted export for a password-protected backup.</p><button class="btn btn-ghost" id="btn-open-privacy">View privacy dashboard</button></section>
+      <section class="card settings-card danger-zone"><h2>Delete local data</h2><p>Remove all months, preferences, and offline caches from this browser. Export a backup first if you want to keep your records.</p><button class="btn btn-ghost btn-danger-outline" id="btn-wipe-data">Wipe all local data</button></section>
+    </section>
   </main>
-
-  <!-- ══════════════════════════════════════
-       STICKY SUMMARY BAR
-  ══════════════════════════════════════ -->
-  <div class="summary-bar" role="status" aria-live="polite" aria-label="Financial summary">
-    <div class="summary-inner">
-      <div class="sum-stat">
-        <span class="sum-label">Monthly Income</span>
-        <span class="sum-value color-cyan" id="sum-income">₱0.00</span>
-      </div>
-      <div class="sum-stat">
-        <span class="sum-label">Total Savings</span>
-        <span class="sum-value" id="sum-savings">₱0.00</span>
-      </div>
-      <div class="sum-stat">
-        <span class="sum-label">Expenses</span>
-        <span class="sum-value" id="sum-expenses">₱0.00</span>
-      </div>
-      <div class="sum-stat">
-        <span class="sum-label">Loan Payments</span>
-        <span class="sum-value" id="sum-loan-pmts">₱0.00</span>
-      </div>
-      <div class="sum-stat">
-        <span class="sum-label">Total Deductions</span>
-        <span class="sum-value color-warning" id="sum-deductions">₱0.00</span>
-      </div>
-      <div class="sum-stat">
-        <span class="sum-label">Remaining</span>
-        <span class="sum-value" id="sum-remaining">₱0.00</span>
+  <div class="modal-overlay" id="welcome-modal" hidden role="dialog" aria-modal="true" aria-labelledby="welcome-heading" aria-describedby="welcome-description">
+    <div class="modal-box"><div class="modal-header"><h2 id="welcome-heading">Welcome to Budget2Go</h2><button class="btn-icon" data-close-welcome aria-label="Close welcome dialog"><i data-lucide="x"></i></button></div>
+      <div class="modal-body"><p id="welcome-description">Make a monthly plan for your money and keep track of what is paid.</p><ul class="welcome-features"><li><i data-lucide="receipt" aria-hidden="true"></i><div><strong>Plan month by month</strong><p>Add income and expenses, then see how much is left to allocate.</p></div></li><li><i data-lucide="wallet" aria-hidden="true"></i><div><strong>Keep your accounts in view</strong><p>Track savings balances and loan repayment progress alongside your budget.</p></div></li><li><i data-lucide="shield-check" aria-hidden="true"></i><div><strong>Your data stays on this device</strong><p>Records are stored in this browser. Export a backup to keep a portable copy or move to another device.</p></div></li></ul></div>
+      <div class="modal-footer"><button class="btn btn-primary" id="btn-welcome-start" data-close-welcome>Get started</button></div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="month-modal" hidden role="dialog" aria-modal="true" aria-labelledby="month-heading">
+    <div class="modal-box"><div class="modal-header"><h2 id="month-heading">Choose a month</h2><button class="btn-icon" data-close-month aria-label="Close month picker"><i data-lucide="x"></i></button></div>
+      <div class="modal-body"><div class="year-controls"><button class="btn-icon" data-year-shift="-1" aria-label="Previous year"><i data-lucide="chevron-left"></i></button><label class="visually-hidden" for="picker-year">Year</label><input class="form-input" id="picker-year" type="number" min="1" max="9999" step="1"><button class="btn-icon" data-year-shift="1" aria-label="Next year"><i data-lucide="chevron-right"></i></button></div>
+      <div id="month-grid" class="month-grid" role="group" aria-label="Months"></div><p class="form-hint">A dot marks a saved month. Each month is independently editable.</p><button class="text-button" id="btn-current-month">Go to this month</button>
+      <section id="copy-month-section" hidden><h3>Start from another month</h3><p class="form-hint">Copy income, savings balances, loans and recurring expenses. Paid checkboxes reset. Loan progress carries over as an independent snapshot; edits stay in this month.</p><label class="form-label" for="copy-month-source">Copy from</label><div class="select-control"><select id="copy-month-source" class="form-input"></select><i data-lucide="chevron-down"></i></div><button class="btn btn-primary" id="btn-confirm-copy">Copy recurring items</button></section>
       </div>
     </div>
   </div>
+  <div class="modal-overlay" id="entry-modal" role="dialog" aria-modal="true" aria-labelledby="entry-heading" hidden><div class="modal-box"><div class="modal-header"><h2 id="entry-heading">Add entry</h2><button class="btn-icon" type="button" data-close-entry aria-label="Close entry dialog"><i data-lucide="x"></i></button></div><form id="entry-form"><div class="modal-body" id="entry-fields"></div><div class="modal-footer"><button class="btn btn-primary" id="entry-submit" type="submit">Save entry</button><button class="btn btn-ghost" type="button" data-close-entry>Cancel</button></div></form></div></div>
 
   <button
     class="calc-fab"
@@ -262,9 +89,6 @@
     <div class="calculator-head">
       <span>Calculator</span>
       <div class="calculator-head-actions">
-        <button class="btn btn-ghost btn-calc-apply" id="btn-calc-apply" aria-label="Use calculator result in selected amount field">
-          Use Result
-        </button>
         <button class="btn-icon" id="btn-calc-close" aria-label="Close calculator">
           <i data-lucide="x" style="width:14px;height:14px;"></i>
         </button>
@@ -273,6 +97,11 @@
     <div class="calculator-display mono" id="calc-display" aria-live="polite" aria-label="Calculator display">
       <div class="calc-display-expr" id="calc-display-expr"></div>
       <div class="calc-display-result" id="calc-display-result">0</div>
+    </div>
+    <div class="calculator-context" id="calc-context" hidden>
+      <p id="calc-destination"></p>
+      <p id="calc-apply-hint" role="status"></p>
+      <button type="button" class="btn btn-primary btn-calc-apply" id="btn-calc-apply" aria-describedby="calc-destination calc-apply-hint" hidden disabled>Use result</button>
     </div>
     <div class="calculator-grid" id="calculator-grid">
       <button class="calculator-btn op" data-calc="clear">C</button>
@@ -331,6 +160,7 @@
           </div>
         </div>
         <p class="form-hint" id="import-file-meta" style="margin-top:10px;">No file selected.</p>
+        <div class="import-preview" id="import-preview" hidden role="status"></div>
         <label class="form-check" for="import-is-encrypted" style="margin-top:10px;">
           <input type="checkbox" id="import-is-encrypted" disabled>
           <span>This file is encrypted</span>
@@ -354,7 +184,7 @@
       <div class="modal-footer">
         <button class="btn btn-primary" id="btn-import-submit" disabled>
           <i data-lucide="upload" style="width:13px;height:13px;"></i>
-          Import
+          Preview Import
         </button>
         <button class="btn btn-ghost" id="btn-import-cancel">Close</button>
       </div>
@@ -369,24 +199,28 @@
       <div class="modal-header">
         <h2 class="modal-title" id="modal-heading">
           <i data-lucide="download" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i>
-          Export Data
+          <span id="export-heading-label">Export Data</span>
         </h2>
         <button class="btn-icon" id="btn-modal-close" aria-label="Close export dialog">
           <i data-lucide="x" style="width:16px;height:16px;"></i>
         </button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" id="export-options">
         <label class="form-label" for="export-filename">Filename (optional)</label>
         <input
           type="text"
           id="export-filename"
           class="form-input mono"
-          placeholder="Leave blank for auto timestamp"
+          placeholder="Leave blank to use the default filename"
           maxlength="100"
           autocomplete="off"
           spellcheck="false"
         >
         <p class="form-hint">Default: <code id="filename-preview"></code> — Special characters are replaced with underscores.</p>
+        <label class="form-check" for="export-timestamp">
+          <input type="checkbox" id="export-timestamp" checked>
+          <span>Include timestamp in default filename</span>
+        </label>
         <label class="form-check" for="export-encrypt" style="margin-top:14px;">
           <input type="checkbox" id="export-encrypt">
           <span>Encrypt export with a password</span>
@@ -402,8 +236,12 @@
             spellcheck="false"
           >
         </div>
+        <label class="form-check" for="export-wipe"><input type="checkbox" id="export-wipe"><span>Wipe local data after export</span></label>
+        <p class="form-hint">After the download starts, confirm that your backup is saved before wiping all months, preferences and offline caches.</p>
       </div>
-      <div class="modal-footer">
+      <div class="modal-body" id="export-wipe-confirmation" hidden><p>Download started: <code id="export-backup-name"></code></p><p class="form-hint">Confirm that your backup file is saved before deleting local data. This removes all months, preferences and offline caches.</p><div class="button-row export-confirm-actions"><button class="btn btn-danger" id="btn-export-wipe-confirm">I saved my backup — wipe data</button><button class="btn btn-ghost" id="btn-export-keep">Keep data</button></div></div>
+      <p class="export-status" id="export-status" role="status" tabindex="-1" hidden></p>
+      <div class="modal-footer" id="export-actions">
         <button class="btn btn-primary" id="btn-export-json" style="flex:1;">
           <i data-lucide="file-json" style="width:13px;height:13px;"></i>
           <span id="export-json-label">Download JSON</span>
@@ -413,8 +251,8 @@
           <span id="export-csv-label">Download CSV</span>
         </button>
         <button class="btn btn-ghost" id="btn-modal-cancel">Cancel</button>
-        <p class="form-hint" id="export-json-target" style="width:100%;margin-top:4px;">JSON will save as: <code>budget_*.json</code></p>
-        <p class="form-hint" id="export-csv-target" style="width:100%;margin-top:2px;">CSV will save as: <code>budget_*.csv</code></p>
+        <p class="form-hint" id="export-json-target" style="width:100%;margin-top:4px;">JSON will save as: <code>budget2go_*.json</code></p>
+        <p class="form-hint" id="export-csv-target" style="width:100%;margin-top:2px;">CSV will save as: <code>budget2go_*.csv</code></p>
       </div>
     </div>
   </div>
@@ -452,11 +290,11 @@
             <span class="privacy-value mono" id="privacy-last-encrypted">No</span>
           </div>
           <div class="privacy-item">
-            <span class="privacy-label">Outbound Requests</span>
+            <span class="privacy-label">Observed API Requests</span>
             <span class="privacy-value mono" id="privacy-outbound-count">0</span>
           </div>
         </div>
-        <p class="form-hint" style="margin-top:12px;">Core flows should remain local-only. If outbound requests are non-zero, review recent changes before deploying.</p>
+        <p class="form-hint" style="margin-top:12px;">This counter observes fetch, XMLHttpRequest, and WebSocket calls made after app startup. It does not cover every possible network request.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" id="btn-privacy-refresh">Refresh</button>
@@ -469,7 +307,14 @@
        TOAST CONTAINER
   ══════════════════════════════════════ -->
   <div id="toast-container" role="log" aria-live="assertive" aria-atomic="false"></div>
+  <div id="undo-snackbar" class="undo-snackbar" role="status" hidden>
+    <span id="undo-message"></span>
+    <button class="btn btn-ghost" id="btn-undo">Undo</button>
+    <span class="undo-timer" aria-hidden="true"></span>
+  </div>
 
+  <!-- Classic loader keeps the checked-in page usable when opened from disk. -->
+  <script src="./file-loader.js"></script>
   <!-- App scripts: single Vite entry module -->
   <script type="module" src="./main.js"></script>
 </body>

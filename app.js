@@ -10,14 +10,12 @@
     if (!window.App || !App.render || !App.ui) return;
 
     // 0. Restore user preferences (theme & currency) before first render
-    var savedTheme = 'dark';
-    try { savedTheme = localStorage.getItem('b2g-theme') || 'dark'; } catch (_) {}
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    var themeIcon = document.querySelector('#btn-theme-toggle i[data-lucide]');
-    if (themeIcon) themeIcon.setAttribute('data-lucide', savedTheme === 'light' ? 'moon' : 'sun');
+    App.ui.initShell();
 
-    var savedCurrency = 'PHP|en-PH';
-    try { savedCurrency = localStorage.getItem('b2g-currency') || 'PHP|en-PH'; } catch (_) {}
+    var restored = App.persistence.restore();
+    var savedCurrency = restored ? App.state.getCurrency() : 'PHP|en-PH';
+    try { if (!restored) savedCurrency = localStorage.getItem('b2g-currency') || 'PHP|en-PH'; } catch (_) {}
+    App.state.setCurrency(savedCurrency);
     var cparts = savedCurrency.split('|');
     if (cparts.length === 2 && App.utils && App.utils.setCurrency) {
       App.utils.setCurrency(cparts[0], cparts[1]);
@@ -28,6 +26,7 @@
     // 1. Wire up the drop zone for file import
     App.ui.initDropZone();
     App.ui.initCalculator();
+    App.ui.initUndo();
 
     // 2. Initial render (empty state)
     App.render.all();
@@ -44,8 +43,7 @@
       console.warn('[BudgetOS] Lucide icons CDN not loaded — icons will be missing.');
     }
 
-    // 5. Brief welcome notification
-    App.ui.toast('BudgetOS loaded — start adding entries or import a file.', 'info');
+    App.ui.showWelcome();
   }
 
   // Wait for full DOM before initialising

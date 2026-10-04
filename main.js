@@ -5,6 +5,7 @@
 import './lucide-setup.js';
 import './utils.js';
 import './state.js';
+import './persistence.js';
 import './render.js';
 import './io.js';
 import './ui.js';

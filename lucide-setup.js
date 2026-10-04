@@ -3,10 +3,17 @@
  * Must be the FIRST import in main.js so window.lucide is ready before any IIFE runs.
  */
 import {
+  Pencil,
+  House,
+  Settings,
+  ShieldCheck,
   AlertCircle,
   Calculator,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   Download,
   FileJson,
@@ -29,10 +36,17 @@ import {
 } from 'lucide';
 
 const ICONS = {
+  Pencil,
+  House,
+  Settings,
+  ShieldCheck,
   AlertCircle,
   Calculator,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   Download,
   FileJson,

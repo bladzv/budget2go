@@ -4,7 +4,8 @@
   "main": "app.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run build:standalone",
+    "build:standalone": "rolldown main.js --format iife --platform browser --file standalone.js --minify",
     "preview": "vite preview",
     "test": "playwright test",
     "test:install": "playwright install chromium"
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "rolldown": "^1.2.12",
     "vite": "^8.0.14",
     "vite-plugin-pwa": "^1.3.0"
   }
